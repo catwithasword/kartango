@@ -1,0 +1,21 @@
+//
+//  KartangoApp.swift
+//  Kartango
+//
+//  Created by Panida Rumriankit on 15/3/2569 BE.
+//
+
+import SwiftUI
+import CoreData
+
+@main
+struct KartangoApp: App {
+    let persistenceController = PersistenceController.shared
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+        }
+    }
+}

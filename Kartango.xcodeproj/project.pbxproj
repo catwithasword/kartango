@@ -6,14 +6,66 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		776C342D2F6712490016BF30 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 776C33FE2F6711AA0016BF30 /* WidgetKit.framework */; };
+		776C342E2F6712490016BF30 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 776C34002F6711AA0016BF30 /* SwiftUI.framework */; };
+		776C34392F67124A0016BF30 /* KartangoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 776C342C2F6712490016BF30 /* KartangoWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		776C34372F67124A0016BF30 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 776C33DD2F67115F0016BF30 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 776C342B2F6712490016BF30;
+			remoteInfo = KartangoWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		776C34112F6711AF0016BF30 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				776C34392F67124A0016BF30 /* KartangoWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		776C33E52F67115F0016BF30 /* Kartango.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kartango.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		776C33FE2F6711AA0016BF30 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		776C34002F6711AA0016BF30 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		776C342C2F6712490016BF30 /* KartangoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KartangoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		776C343F2F6714800016BF30 /* KartangoWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KartangoWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		776C343A2F67124A0016BF30 /* Exceptions for "KartangoWidget" folder in "KartangoWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 776C342B2F6712490016BF30 /* KartangoWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		776C33E72F67115F0016BF30 /* Kartango */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Kartango;
+			sourceTree = "<group>";
+		};
+		776C342F2F6712490016BF30 /* KartangoWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				776C343A2F67124A0016BF30 /* Exceptions for "KartangoWidget" folder in "KartangoWidgetExtension" target */,
+			);
+			path = KartangoWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,13 +78,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		776C34292F6712490016BF30 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				776C342E2F6712490016BF30 /* SwiftUI.framework in Frameworks */,
+				776C342D2F6712490016BF30 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		776C33DC2F67115F0016BF30 = {
 			isa = PBXGroup;
 			children = (
+				776C343F2F6714800016BF30 /* KartangoWidgetExtension.entitlements */,
 				776C33E72F67115F0016BF30 /* Kartango */,
+				776C342F2F6712490016BF30 /* KartangoWidget */,
+				776C33FD2F6711AA0016BF30 /* Frameworks */,
 				776C33E62F67115F0016BF30 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +105,18 @@
 			isa = PBXGroup;
 			children = (
 				776C33E52F67115F0016BF30 /* Kartango.app */,
+				776C342C2F6712490016BF30 /* KartangoWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		776C33FD2F6711AA0016BF30 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				776C33FE2F6711AA0016BF30 /* WidgetKit.framework */,
+				776C34002F6711AA0016BF30 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +129,12 @@
 				776C33E12F67115F0016BF30 /* Sources */,
 				776C33E22F67115F0016BF30 /* Frameworks */,
 				776C33E32F67115F0016BF30 /* Resources */,
+				776C34112F6711AF0016BF30 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				776C34382F67124A0016BF30 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				776C33E72F67115F0016BF30 /* Kartango */,
@@ -69,6 +145,28 @@
 			productName = Kartango;
 			productReference = 776C33E52F67115F0016BF30 /* Kartango.app */;
 			productType = "com.apple.product-type.application";
+		};
+		776C342B2F6712490016BF30 /* KartangoWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 776C343B2F67124A0016BF30 /* Build configuration list for PBXNativeTarget "KartangoWidgetExtension" */;
+			buildPhases = (
+				776C34282F6712490016BF30 /* Sources */,
+				776C34292F6712490016BF30 /* Frameworks */,
+				776C342A2F6712490016BF30 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				776C342F2F6712490016BF30 /* KartangoWidget */,
+			);
+			name = KartangoWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = KartangoWidgetExtension;
+			productReference = 776C342C2F6712490016BF30 /* KartangoWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -83,6 +181,9 @@
 					776C33E42F67115F0016BF30 = {
 						CreatedOnToolsVersion = 26.3;
 					};
+					776C342B2F6712490016BF30 = {
+						CreatedOnToolsVersion = 26.3;
+					};
 				};
 			};
 			buildConfigurationList = 776C33E02F67115F0016BF30 /* Build configuration list for PBXProject "Kartango" */;
@@ -94,18 +195,30 @@
 			);
 			mainGroup = 776C33DC2F67115F0016BF30;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				776C34402F6715AD0016BF30 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+				776C34412F6717CF0016BF30 /* XCRemoteSwiftPackageReference "SQLite" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 776C33E62F67115F0016BF30 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				776C33E42F67115F0016BF30 /* Kartango */,
+				776C342B2F6712490016BF30 /* KartangoWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		776C33E32F67115F0016BF30 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		776C342A2F6712490016BF30 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +235,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		776C34282F6712490016BF30 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		776C34382F67124A0016BF30 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 776C342B2F6712490016BF30 /* KartangoWidgetExtension */;
+			targetProxy = 776C34372F67124A0016BF30 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		776C33F32F6711610016BF30 /* Debug */ = {
@@ -244,10 +372,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Kartango/Kartango.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9W3Z6F2B6H;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -286,10 +426,22 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Kartango/Kartango.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9W3Z6F2B6H;
 				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = NO;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -323,6 +475,92 @@
 			};
 			name = Release;
 		};
+		776C343C2F67124A0016BF30 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = KartangoWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9W3Z6F2B6H;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KartangoWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = KartangoWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ku.ske.Kartango.KartangoWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		776C343D2F67124A0016BF30 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = KartangoWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9W3Z6F2B6H;
+				ENABLE_APP_SANDBOX = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KartangoWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = KartangoWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ku.ske.Kartango.KartangoWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -344,7 +582,35 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		776C343B2F67124A0016BF30 /* Build configuration list for PBXNativeTarget "KartangoWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				776C343C2F67124A0016BF30 /* Debug */,
+				776C343D2F67124A0016BF30 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		776C34402F6715AD0016BF30 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.20;
+			};
+		};
+		776C34412F6717CF0016BF30 /* XCRemoteSwiftPackageReference "SQLite" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stephencelis/SQLite.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.16.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
 	};
 	rootObject = 776C33DD2F67115F0016BF30 /* Project object */;
 }

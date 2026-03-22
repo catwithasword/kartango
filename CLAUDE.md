@@ -31,7 +31,7 @@ System frameworks: `SwiftUI`, `WidgetKit`, `Core Data`, `AVFoundation`
 ## Core Components
 
 **APKGParser** (`Services/APKGParser.swift`)
-Unzips `.apkg` → extracts `collection.anki2` (SQLite) for cards + `media` JSON for audio mapping. Cards have: word, definition, optional example, optional audio filename.
+Unzips `.apkg` → prefers `collection.anki21` and falls back to `collection.anki2` (SQLite) for cards + `media` JSON for audio mapping. Cards have: word, definition, optional example, optional audio filename.
 
 **QueueEngine** (`ViewModels/QueueEngine.swift`)
 Builds the daily queue from active decks respecting the user's `newCardsPerDay` / `reviewCardsPerDay` settings. Cards with more "Again" history in their history are prioritised earlier the next day.

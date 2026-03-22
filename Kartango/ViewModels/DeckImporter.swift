@@ -1,11 +1,12 @@
 import CoreData
 import Foundation
-import Combine
+import Observation
 
 @MainActor
-final class DeckImporter: ObservableObject {
-    @Published var isImporting = false
-    @Published var importErrorMessage: String?
+@Observable
+final class DeckImporter {
+    var isImporting = false
+    var importErrorMessage: String?
 
     private let parser = APKGParser()
 

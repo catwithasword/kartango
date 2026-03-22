@@ -10,9 +10,49 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    fileprivate enum Tab {
+        case decks
+        case stats
+        case settings
+
+        var title: String {
+            switch self {
+            case .decks:
+                "Decks"
+            case .stats:
+                "Stats"
+            case .settings:
+                "Settings"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .decks:
+                "DecksWhite"
+            case .stats:
+                "Statswhite"
+            case .settings:
+                "SettingWhite"
+            }
+        }
+
+        var unselectedImage: String {
+            switch self {
+            case .decks:
+                "DecksGray"
+            case .stats:
+                "StatsGray"
+            case .settings:
+                "SettingGray"
+            }
+        }
+    }
+
     @Environment(\.managedObjectContext) private var viewContext
     @StateObject private var importer = DeckImporter()
     @State private var isImporterPresented = false
+    @State private var selectedTab: Tab = .decks
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Deck.createdAt, ascending: false)],
@@ -21,24 +61,15 @@ struct ContentView: View {
     private var decks: FetchedResults<Deck>
 
     var body: some View {
-        TabView {
-            decksTab
-                .tabItem {
-                    Label("Decks", systemImage: "square.stack.fill")
-                }
+        ZStack(alignment: .bottom) {
+            selectedTabContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.brightBeige.ignoresSafeArea())
 
-            statsTab
-                .tabItem {
-                    Label("Stats", systemImage: "chart.pie.fill")
-                }
-
-            settingsTab
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
+            CustomTabBar(selectedTab: $selectedTab)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
         }
-        .tint(Color.deckAccent)
-        .background(Color.brightBeige.ignoresSafeArea())
         .fileImporter(
             isPresented: $isImporterPresented,
             allowedContentTypes: [.ankiPackage],
@@ -54,6 +85,18 @@ struct ContentView: View {
             case .failure(let error):
                 importer.importErrorMessage = error.localizedDescription
             }
+        }
+    }
+
+    @ViewBuilder
+    private var selectedTabContent: some View {
+        switch selectedTab {
+        case .decks:
+            decksTab
+        case .stats:
+            statsTab
+        case .settings:
+            settingsTab
         }
     }
 
@@ -90,6 +133,9 @@ struct ContentView: View {
                         }
                     }
                     .scrollContentBackground(.hidden)
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: 140)
+                    }
                 }
 
                 if importer.isImporting {
@@ -99,17 +145,7 @@ struct ContentView: View {
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
                 }
             }
-            .navigationTitle("Kartango")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        isImporterPresented = true
-                    } label: {
-                        Label("Import Deck", systemImage: "square.and.arrow.down")
-                    }
-                    .disabled(importer.isImporting)
-                }
-            }
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
@@ -148,28 +184,21 @@ struct ContentView: View {
                         .frame(width: 72, height: 72)
                     Text("Upload deck (.apkg)")
                         .font(.headline)
+                        .foregroundStyle(Color.defaultGray)
                 }
                 .foregroundStyle(Color.deckAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 28)
-                .background(Color.deckCard, in: RoundedRectangle(cornerRadius: 28))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(Color.deckAccent.opacity(0.18), lineWidth: 1)
-                }
             }
             .buttonStyle(.plain)
-
-            Text("Import an Anki package to extract cards and shared audio.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 12)
 
             Spacer()
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 20)
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: 140)
+        }
     }
 
     @ViewBuilder
@@ -194,6 +223,9 @@ struct ContentView: View {
                     statTile(title: "Cards", value: "\(decks.reduce(0) { $0 + $1.sortedCards.count })")
                 }
                 .padding(24)
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear.frame(height: 140)
+                }
             }
             .navigationTitle("Stats")
         }
@@ -214,6 +246,9 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .padding(24)
+                .safeAreaInset(edge: .bottom) {
+                    Color.clear.frame(height: 140)
+                }
             }
             .navigationTitle("Settings")
         }
@@ -243,6 +278,90 @@ struct ContentView: View {
     }
 }
 
+private struct CustomTabBar: View {
+    @Binding var selectedTab: ContentView.Tab
+    private let tabs: [ContentView.Tab] = [.decks, .stats, .settings]
+
+    var body: some View {
+        GeometryReader { geometry in
+            let tabWidth = geometry.size.width / CGFloat(tabs.count)
+
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(Color.white.opacity(0.94))
+                    .frame(height: 80)
+                    .shadow(color: .black.opacity(0.16), radius: 4, x: 0, y: 6)
+
+                HStack(spacing: 0) {
+                    ForEach(Array(tabs.enumerated()), id: \.offset) { _, tab in
+                        tabButton(tab)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .frame(height: 76)
+
+                selectedTabButton
+                    .frame(width: tabWidth, height: 104)
+                    .offset(x: selectedOffsetX(tabWidth: tabWidth))
+            }
+        }
+        .frame(height: 108)
+    }
+
+    private func selectedOffsetX(tabWidth: CGFloat) -> CGFloat {
+        guard let index = tabs.firstIndex(where: { $0 == selectedTab }) else {
+            return 0
+        }
+
+        return CGFloat(index) * tabWidth
+    }
+
+    private func tabButton(_ tab: ContentView.Tab) -> some View {
+        Button {
+            selectedTab = tab
+        } label: {
+            VStack(spacing: 5) {
+                Image(tab.unselectedImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 30, height: 30)
+
+                Text(tab.title)
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .foregroundStyle(Color.defaultGray)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .opacity(selectedTab == tab ? 0 : 1)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var selectedTabButton: some View {
+        Button {
+            selectedTab = selectedTab
+        } label: {
+            VStack(spacing: 4) {
+                Image(selectedTab.systemImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 32, height: 32)
+
+                Text(selectedTab.title)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(width: 84, height: 84)
+            .background(
+                Circle()
+                    .fill(Color.deckAccent)
+            )
+            .shadow(color: .black.opacity(0.14), radius: 5, x: 0, y: 5)
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+}
+
 private extension UTType {
     static let ankiPackage = UTType(filenameExtension: "apkg") ?? .data
 }
@@ -252,6 +371,12 @@ private extension Color {
         red: 1.0,
         green: 244.0 / 255.0,
         blue: 234.0 / 255.0
+    )
+
+    static let defaultGray = Color(
+        red: 204.0 / 255.0,
+        green: 204.0 / 255.0,
+        blue: 204.0 / 255.0
     )
 
     static let deckAccent = Color(

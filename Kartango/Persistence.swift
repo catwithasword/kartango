@@ -115,29 +115,7 @@ struct PersistenceController {
 
     @MainActor
     static let preview: PersistenceController = {
-        let result = PersistenceController(inMemory: true)
-        let viewContext = result.container.viewContext
-        let previewDeck = Deck(context: viewContext)
-        previewDeck.id = UUID()
-        previewDeck.name = "Preview Deck"
-        previewDeck.createdAt = Date()
-
-        let previewCard = Card(context: viewContext)
-        previewCard.id = UUID()
-        previewCard.noteID = 1
-        previewCard.cardID = 1
-        previewCard.word = "bonjour"
-        previewCard.definitionText = "hello"
-        previewCard.example = "Bonjour, Marie."
-        previewCard.createdAt = Date()
-        previewCard.deck = previewDeck
-        do {
-            try viewContext.save()
-        } catch {
-            let nsError = error as NSError
-            fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-        }
-        return result
+        PersistenceController(inMemory: true)
     }()
 
     let container: NSPersistentContainer

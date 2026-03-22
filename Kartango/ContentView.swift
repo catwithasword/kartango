@@ -142,8 +142,10 @@ struct ContentView: View {
                 isImporterPresented = true
             } label: {
                 VStack(spacing: 10) {
-                    Image(systemName: "square.and.arrow.down.fill")
-                        .font(.system(size: 34))
+                    Image("UploadIcon")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 72, height: 72)
                     Text("Upload deck (.apkg)")
                         .font(.headline)
                 }

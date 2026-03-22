@@ -7,9 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		33AEF9E92F70000100A1B2C3 /* SQLite in Frameworks */ = {isa = PBXBuildFile; productRef = 33AEF9E82F70000100A1B2C3 /* SQLite */; };
+		33AEF9EB2F70000200A1B2C3 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 33AEF9EA2F70000200A1B2C3 /* ZIPFoundation */; };
 		776C342D2F6712490016BF30 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 776C33FE2F6711AA0016BF30 /* WidgetKit.framework */; };
 		776C342E2F6712490016BF30 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 776C34002F6711AA0016BF30 /* SwiftUI.framework */; };
 		776C34392F67124A0016BF30 /* KartangoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 776C342C2F6712490016BF30 /* KartangoWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		77C075DB2F6FB49D004B5DA9 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 77C075DA2F6FB49D004B5DA9 /* CLAUDE.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,6 +45,7 @@
 		776C34002F6711AA0016BF30 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		776C342C2F6712490016BF30 /* KartangoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KartangoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		776C343F2F6714800016BF30 /* KartangoWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KartangoWidgetExtension.entitlements; sourceTree = "<group>"; };
+		77C075DA2F6FB49D004B5DA9 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -75,6 +79,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				33AEF9EB2F70000200A1B2C3 /* ZIPFoundation in Frameworks */,
+				33AEF9E92F70000100A1B2C3 /* SQLite in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,6 +104,7 @@
 				776C342F2F6712490016BF30 /* KartangoWidget */,
 				776C33FD2F6711AA0016BF30 /* Frameworks */,
 				776C33E62F67115F0016BF30 /* Products */,
+				77C075DA2F6FB49D004B5DA9 /* CLAUDE.md */,
 			);
 			sourceTree = "<group>";
 		};
@@ -141,6 +148,8 @@
 			);
 			name = Kartango;
 			packageProductDependencies = (
+				33AEF9EA2F70000200A1B2C3 /* ZIPFoundation */,
+				33AEF9E82F70000100A1B2C3 /* SQLite */,
 			);
 			productName = Kartango;
 			productReference = 776C33E52F67115F0016BF30 /* Kartango.app */;
@@ -215,6 +224,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				77C075DB2F6FB49D004B5DA9 /* CLAUDE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -611,6 +621,19 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		33AEF9E82F70000100A1B2C3 /* SQLite */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 776C34412F6717CF0016BF30 /* XCRemoteSwiftPackageReference "SQLite" */;
+			productName = SQLite;
+		};
+		33AEF9EA2F70000200A1B2C3 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 776C34402F6715AD0016BF30 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 776C33DD2F67115F0016BF30 /* Project object */;
 }

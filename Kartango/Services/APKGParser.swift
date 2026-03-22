@@ -80,10 +80,7 @@ actor APKGParser {
 
         try extractAll(from: archive, to: workingDirectory)
 
-        let collectionURL = workingDirectory.appendingPathComponent("collection.anki2")
-        guard fileManager.fileExists(atPath: collectionURL.path) else {
-            throw ParserError.missingCollectionDatabase
-        }
+        let collectionURL = try collectionDatabaseURL(in: workingDirectory)
 
         let mediaMap = try parseMediaMap(in: workingDirectory)
         let audioDirectory = try sharedAudioDirectory()
@@ -100,6 +97,22 @@ actor APKGParser {
         }
 
         return (workingDirectory, decks.filter { !$0.cards.isEmpty })
+    }
+
+    private static func collectionDatabaseURL(in directory: URL) throws -> URL {
+        let candidateNames = [
+            "collection.anki21",
+            "collection.anki2"
+        ]
+
+        for candidateName in candidateNames {
+            let candidateURL = directory.appendingPathComponent(candidateName)
+            if FileManager.default.fileExists(atPath: candidateURL.path) {
+                return candidateURL
+            }
+        }
+
+        throw ParserError.missingCollectionDatabase
     }
 
     private static func extractAll(from archive: ZIPFoundation.Archive, to destinationDirectory: URL) throws {

@@ -113,23 +113,10 @@ struct ContentView: View {
                         statusSection
                         Section("Decks") {
                             ForEach(decks) { deck in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(deck.name)
-                                        .font(.headline)
-                                    Text("\(deck.sortedCards.count) cards")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-
-                                    if let firstCard = deck.sortedCards.first {
-                                        Text("\(firstCard.word) • \(firstCard.definitionText)")
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(2)
-                                    }
-                                }
-                                .padding(.vertical, 6)
+                                deckRow(deck)
                                 .listRowBackground(Color.deckCard)
                             }
+                            .onDelete(perform: deleteDecks)
                         }
                     }
                     .scrollContentBackground(.hidden)
@@ -151,14 +138,6 @@ struct ContentView: View {
 
     @ViewBuilder
     private var statusSection: some View {
-        if let summary = importer.importSummaryMessage {
-            Section {
-                Text(summary)
-                    .font(.subheadline)
-                    .foregroundStyle(.green)
-            }
-        }
-
         if let errorMessage = importer.importErrorMessage {
             Section {
                 Text(errorMessage)
@@ -203,10 +182,6 @@ struct ContentView: View {
 
     @ViewBuilder
     private var statusCards: some View {
-        if let summary = importer.importSummaryMessage {
-            infoCard(text: summary, tint: .green)
-        }
-
         if let errorMessage = importer.importErrorMessage {
             infoCard(text: errorMessage, tint: .red)
         }
@@ -263,6 +238,34 @@ struct ContentView: View {
             .background(Color.deckCard, in: RoundedRectangle(cornerRadius: 18))
     }
 
+    private func deckRow(_ deck: Deck) -> some View {
+        let reviewedCount = 0
+        let remainingCount = deck.sortedCards.count
+
+        return HStack(spacing: 16) {
+            Text(deck.name)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.black.opacity(0.85))
+                .lineLimit(1)
+
+            Spacer(minLength: 12)
+
+            HStack(spacing: 22) {
+                Text("\(reviewedCount)")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.deckAccent)
+
+                Text("\(remainingCount)")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Color.remainingAccent)
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 24)
+        .listRowInsets(EdgeInsets(top: 10, leading: 18, bottom: 10, trailing: 18))
+        .background(Color.deckCard, in: RoundedRectangle(cornerRadius: 22))
+    }
+
     private func statTile(title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
@@ -275,6 +278,20 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(22)
         .background(Color.deckCard, in: RoundedRectangle(cornerRadius: 24))
+    }
+
+    private func deleteDecks(at offsets: IndexSet) {
+        for offset in offsets {
+            let deck = decks[offset]
+            viewContext.delete(deck)
+        }
+
+        do {
+            try viewContext.save()
+        } catch {
+            viewContext.rollback()
+            importer.importErrorMessage = "Failed to delete the selected deck."
+        }
     }
 }
 
@@ -383,6 +400,12 @@ private extension Color {
         red: 116.0 / 255.0,
         green: 156.0 / 255.0,
         blue: 172.0 / 255.0
+    )
+
+    static let remainingAccent = Color(
+        red: 145.0 / 255.0,
+        green: 191.0 / 255.0,
+        blue: 137.0 / 255.0
     )
 
     static let deckCard = Color.white.opacity(0.8)

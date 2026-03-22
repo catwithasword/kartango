@@ -61,12 +61,20 @@ struct ContentView: View {
     private var decks: FetchedResults<Deck>
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             selectedTabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.brightBeige.ignoresSafeArea())
 
+            if selectedTab == .decks {
+                addDeckButton
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(.trailing, 26)
+                    .padding(.bottom, 132)
+            }
+
             CustomTabBar(selectedTab: $selectedTab)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
         }
@@ -236,6 +244,20 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .background(Color.deckCard, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var addDeckButton: some View {
+        Button {
+            isImporterPresented = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 28, weight: .light))
+                .foregroundStyle(.black.opacity(0.9))
+                .frame(width: 72, height: 72)
+                .background(Color.white, in: Circle())
+                .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 4)
+        }
+        .buttonStyle(.plain)
     }
 
     private func deckRow(_ deck: Deck) -> some View {

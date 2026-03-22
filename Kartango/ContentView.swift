@@ -27,7 +27,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.brightBeige.ignoresSafeArea())
 
-            if selectedTab == .decks {
+            if selectedTab == .decks && !decks.isEmpty {
                 addDeckButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 26)

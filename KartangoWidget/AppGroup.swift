@@ -26,10 +26,34 @@ struct QueueState: Codable, Equatable {
     var queueDate: String = ""
     var cards: [QueueCard] = []
     var completedCardIDs: [String] = []
+    var reviewedCardIDs: [String] = []
     var againCounts: [String: Int] = [:]
 
     var currentCard: QueueCard? {
         cards.first
+    }
+
+    init(
+        queueDate: String = "",
+        cards: [QueueCard] = [],
+        completedCardIDs: [String] = [],
+        reviewedCardIDs: [String] = [],
+        againCounts: [String: Int] = [:]
+    ) {
+        self.queueDate = queueDate
+        self.cards = cards
+        self.completedCardIDs = completedCardIDs
+        self.reviewedCardIDs = reviewedCardIDs
+        self.againCounts = againCounts
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        queueDate = try container.decodeIfPresent(String.self, forKey: .queueDate) ?? ""
+        cards = try container.decodeIfPresent([QueueCard].self, forKey: .cards) ?? []
+        completedCardIDs = try container.decodeIfPresent([String].self, forKey: .completedCardIDs) ?? []
+        reviewedCardIDs = try container.decodeIfPresent([String].self, forKey: .reviewedCardIDs) ?? []
+        againCounts = try container.decodeIfPresent([String: Int].self, forKey: .againCounts) ?? [:]
     }
 }
 

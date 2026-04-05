@@ -135,6 +135,9 @@ struct PassIntent: AppIntent {
 
         state.cards.removeFirst()
         state.completedCardIDs.append(currentCard.id)
+        if !state.reviewedCardIDs.contains(currentCard.id) {
+            state.reviewedCardIDs.append(currentCard.id)
+        }
         QueueStore.save(state, to: defaults)
 
         WidgetCenter.shared.reloadAllTimelines()

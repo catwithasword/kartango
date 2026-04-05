@@ -32,16 +32,17 @@ struct DeckRowView: View {
     private var reviewedCount: Int {
         let remainingReviewIDs = Set(
             queueState.cards
-                .filter { queueState.againCounts[$0.id, default: 0] > 0 }
+                .filter { queueState.reviewedCardIDs.contains($0.id) }
                 .map(\.id)
         )
         return deck.studyCards.filter { remainingReviewIDs.contains($0.id.uuidString) }.count
     }
 
     private var remainingCount: Int {
+        let reviewedCardIDs = Set(queueState.reviewedCardIDs)
         let remainingNewIDs = Set(
             queueState.cards
-                .filter { queueState.againCounts[$0.id, default: 0] == 0 }
+                .filter { !reviewedCardIDs.contains($0.id) }
                 .map(\.id)
         )
         return deck.studyCards.filter { remainingNewIDs.contains($0.id.uuidString) }.count

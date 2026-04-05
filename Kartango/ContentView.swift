@@ -141,7 +141,13 @@ struct ContentView: View {
         let libraryCardIDs = Set(libraryCards.map(\.id))
 
         guard !libraryCards.isEmpty else {
-            let emptyState = QueueState(queueDate: todayKey, cards: [], completedCardIDs: [], againCounts: existingState.againCounts)
+            let emptyState = QueueState(
+                queueDate: todayKey,
+                cards: [],
+                completedCardIDs: [],
+                reviewedCardIDs: existingState.reviewedCardIDs,
+                againCounts: existingState.againCounts
+            )
             QueueStore.save(emptyState, to: defaults)
             queueState = emptyState
             return
@@ -153,11 +159,18 @@ struct ContentView: View {
         }
 
         let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
-        let rebuiltCards = buildDailyQueue(from: libraryCards, againCounts: preservedAgainCounts, defaults: defaults)
+        let preservedReviewedCardIDs = existingState.reviewedCardIDs.filter { libraryCardIDs.contains($0) }
+        let rebuiltCards = buildDailyQueue(
+            from: libraryCards,
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts,
+            defaults: defaults
+        )
         let rebuiltState = QueueState(
             queueDate: todayKey,
             cards: rebuiltCards,
             completedCardIDs: [],
+            reviewedCardIDs: preservedReviewedCardIDs,
             againCounts: preservedAgainCounts
         )
         QueueStore.save(rebuiltState, to: defaults)
@@ -196,6 +209,7 @@ struct ContentView: View {
 
     private func buildDailyQueue(
         from cards: [QueueCard],
+        reviewedCardIDs: [String],
         againCounts: [String: Int],
         defaults: UserDefaults?
     ) -> [QueueCard] {
@@ -206,10 +220,15 @@ struct ContentView: View {
             defaults?.integer(forKey: "reviewCardsPerDay") ?? 10
         )
 
-        let reviewCards = cards.filter { againCounts[$0.id, default: 0] > 0 }
-        let newCards = cards.filter { againCounts[$0.id, default: 0] == 0 }
+        let reviewedCardIDSet = Set(reviewedCardIDs)
+        let reviewCards = cards.filter { reviewedCardIDSet.contains($0.id) }
+        let newCards = cards.filter { !reviewedCardIDSet.contains($0.id) }
 
-        let selectedReviewCards = Array(reviewCards.prefix(reviewCardsPerDay))
+        let selectedReviewCards = weightedReviewSelection(
+            from: reviewCards,
+            againCounts: againCounts,
+            limit: reviewCardsPerDay
+        )
         let selectedReviewIDs = Set(selectedReviewCards.map(\.id))
         let selectedNewCards = Array(
             newCards
@@ -218,6 +237,39 @@ struct ContentView: View {
         )
 
         return selectedReviewCards + selectedNewCards
+    }
+
+    private func weightedReviewSelection(
+        from reviewCards: [QueueCard],
+        againCounts: [String: Int],
+        limit: Int
+    ) -> [QueueCard] {
+        guard reviewCards.count > limit else {
+            return reviewCards
+        }
+
+        var generator = SystemRandomNumberGenerator()
+        var remainingCards = reviewCards
+        var selectedCards: [QueueCard] = []
+
+        while selectedCards.count < limit, !remainingCards.isEmpty {
+            let totalWeight = remainingCards.reduce(0) { partialResult, card in
+                partialResult + max(1, againCounts[card.id, default: 0] + 1)
+            }
+            var randomWeight = Int.random(in: 0..<totalWeight, using: &generator)
+
+            for (index, card) in remainingCards.enumerated() {
+                randomWeight -= max(1, againCounts[card.id, default: 0] + 1)
+
+                if randomWeight < 0 {
+                    selectedCards.append(card)
+                    remainingCards.remove(at: index)
+                    break
+                }
+            }
+        }
+
+        return selectedCards
     }
 
     private func normalizedDailyLimit(_ value: Int) -> Int {

@@ -101,7 +101,8 @@ struct KartangoWidgetEntryView: View {
         ZStack {
             
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(red: 237/255, green: 220/255, blue: 197/255)).padding(-20)
+                .fill(Color.widgetBackground)
+                .padding(-20)
             Button(intent: FlipCardIntent()) {
                 Color.clear
             }
@@ -109,12 +110,13 @@ struct KartangoWidgetEntryView: View {
             
             if entry.isFlipped {
                 HStack {
+                    // audio button
                     Button(intent: PlayAudioIntent()) {
                         Image(systemName: "speaker.wave.2.fill")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color(red: 126/255, green: 172/255, blue: 181/255))
+                            .background(Color.audioButton)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -134,21 +136,23 @@ struct KartangoWidgetEntryView: View {
                     Spacer()
                     
                     VStack(spacing: 12) {
+                        // again button
                         Button(intent: AgainIntent()) {
                             Image(systemName: "arrow.uturn.left")
                                 .foregroundColor(.white)
                                 .frame(width: 44, height: 44)
-                                .background(Color(red: 191/255, green: 70/255, blue: 70/255))
+                                .background(Color.againButton)
                                 .clipShape(Circle())
                                
                         }
                         .buttonStyle(.plain)
 
+                        // pass button
                         Button(intent: PassIntent()) {
                             Image(systemName: "arrow.right")
                                 .foregroundColor(.white)
                                 .frame(width: 44, height: 44)
-                                .background(Color(red: 133/255, green: 181/255, blue: 126/255))
+                                .background(Color.passButton)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)

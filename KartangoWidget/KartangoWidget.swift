@@ -16,7 +16,8 @@ struct FlipCardIntent: AppIntent {
     static var title: LocalizedStringResource = "Flip Card"
     
     func perform() async throws -> some IntentResult {
-        let defaults = UserDefaults.standard
+//        let defaults = UserDefaults.standard
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
         let current = defaults.bool(forKey: "isFlipped")
         defaults.set(!current, forKey: "isFlipped")
         WidgetCenter.shared.reloadAllTimelines()
@@ -25,18 +26,65 @@ struct FlipCardIntent: AppIntent {
 }
 
 
+//struct Provider: TimelineProvider {
+//    func placeholder(in context: Context) -> CardEntry {
+//        CardEntry(date: Date(), isFlipped: false)
+//    }
+//    
+//    func getSnapshot(in context: Context, completion: @escaping (CardEntry) -> ()) {
+//        completion(CardEntry(date: Date(), isFlipped: false))
+//    }
+//    
+//    func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
+//        let isFlipped = UserDefaults.standard.bool(forKey: "isFlipped")
+//        let entry = CardEntry(date: Date(), isFlipped: isFlipped)
+//        completion(Timeline(entries: [entry], policy: .never))
+//    }
+//}
+
 struct Provider: TimelineProvider {
+
     func placeholder(in context: Context) -> CardEntry {
-        CardEntry(date: Date(), isFlipped: false)
+        CardEntry(
+            date: Date(),
+            isFlipped: false,
+            word: "人",
+            reading: "ひと",
+            meaning: "person"
+        )
     }
     
     func getSnapshot(in context: Context, completion: @escaping (CardEntry) -> ()) {
-        completion(CardEntry(date: Date(), isFlipped: false))
+        completion(
+            CardEntry(
+                date: Date(),
+                isFlipped: false,
+                word: "人",
+                reading: "ひと",
+                meaning: "person"
+            )
+        )
     }
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
-        let isFlipped = UserDefaults.standard.bool(forKey: "isFlipped")
-        let entry = CardEntry(date: Date(), isFlipped: isFlipped)
+
+        // ✅ USE APP GROUP
+//        let defaults = UserDefaults(suiteName: AppGroup.identifier)
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+
+        let isFlipped = defaults.bool(forKey: "isFlipped")
+        let word = defaults.string(forKey: "word") ?? "—"
+        let reading = defaults.string(forKey: "reading") ?? ""
+        let meaning = defaults.string(forKey: "meaning") ?? ""
+
+        let entry = CardEntry(
+            date: Date(),
+            isFlipped: isFlipped,
+            word: word,
+            reading: reading,
+            meaning: meaning
+        )
+
         completion(Timeline(entries: [entry], policy: .never))
     }
 }
@@ -56,7 +104,8 @@ struct AgainIntent: AppIntent {
     static var title: LocalizedStringResource = "Again"
 
     func perform() async throws -> some IntentResult {
-        let defaults = UserDefaults.standard
+//        let defaults = UserDefaults.standard
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
         var index = defaults.integer(forKey: "currentIndex")
 
         index += 1 // still move forward
@@ -74,7 +123,8 @@ struct PassIntent: AppIntent {
     static var title: LocalizedStringResource = "Pass"
 
     func perform() async throws -> some IntentResult {
-        let defaults = UserDefaults.standard
+//        let defaults = UserDefaults.standard
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
         var index = defaults.integer(forKey: "currentIndex")
 
         index += 1
@@ -89,9 +139,17 @@ struct PassIntent: AppIntent {
 }
 
 
+//struct CardEntry: TimelineEntry {
+//    let date: Date
+//    let isFlipped: Bool
+//}
+
 struct CardEntry: TimelineEntry {
     let date: Date
     let isFlipped: Bool
+    let word: String
+    let reading: String
+    let meaning: String
 }
 
 struct KartangoWidgetEntryView: View {
@@ -101,7 +159,8 @@ struct KartangoWidgetEntryView: View {
         ZStack {
             
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(red: 237/255, green: 220/255, blue: 197/255)).padding(-20)
+                .fill(Color.widgetBackground)
+                .padding(-20)
             Button(intent: FlipCardIntent()) {
                 Color.clear
             }
@@ -109,12 +168,13 @@ struct KartangoWidgetEntryView: View {
             
             if entry.isFlipped {
                 HStack {
+                    // audio button
                     Button(intent: PlayAudioIntent()) {
                         Image(systemName: "speaker.wave.2.fill")
                             .font(.system(size: 20))
                             .foregroundColor(.white)
                             .frame(width: 50, height: 50)
-                            .background(Color(red: 126/255, green: 172/255, blue: 181/255))
+                            .background(Color.audioButton)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -122,42 +182,48 @@ struct KartangoWidgetEntryView: View {
                     Spacer()
 
                     VStack(spacing: 6) {
-                        Text("ひと")
+//                        Text("ひと")
+                        Text(entry.reading)
                             .font(.caption)
                             .foregroundColor(.secondary)
-                        Text("人")
+//                        Text("人")
+                        Text(entry.word)
                             .font(.system(size: 40, weight: .bold))
-                        Text("person")
+//                        Text("person")
+                        Text(entry.meaning)
                             .font(.headline)
                     } // end VStack
 
                     Spacer()
                     
                     VStack(spacing: 12) {
+                        // again button
                         Button(intent: AgainIntent()) {
                             Image(systemName: "arrow.uturn.left")
                                 .foregroundColor(.white)
                                 .frame(width: 44, height: 44)
-                                .background(Color(red: 191/255, green: 70/255, blue: 70/255))
+                                .background(Color.againButton)
                                 .clipShape(Circle())
                                
                         }
                         .buttonStyle(.plain)
 
+                        // pass button
                         Button(intent: PassIntent()) {
                             Image(systemName: "arrow.right")
                                 .foregroundColor(.white)
                                 .frame(width: 44, height: 44)
-                                .background(Color(red: 133/255, green: 181/255, blue: 126/255))
+                                .background(Color.passButton)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
                     } // end Vstack
                 } // end HStack
                 .padding()
-            } else {
+            } else { // front card
                 
-                    Text("人")
+//                    Text("人")
+                Text(entry.word)
                         .font(.system(size: 50, weight: .bold))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -186,9 +252,28 @@ struct KartangoWidget: Widget {
     }
 }
 
+//#Preview(as: .systemMedium) {
+//    KartangoWidget()
+//} timeline: {
+//    CardEntry(date: .now, isFlipped: false)
+//    CardEntry(date: .now, isFlipped: true)
+//}
+
 #Preview(as: .systemMedium) {
     KartangoWidget()
 } timeline: {
-    CardEntry(date: .now, isFlipped: false)
-    CardEntry(date: .now, isFlipped: true)
+    CardEntry(
+        date: .now,
+        isFlipped: false,
+        word: "human",
+        reading: "kon",
+        meaning: "person"
+    )
+    CardEntry(
+        date: .now,
+        isFlipped: true,
+        word: "human",
+        reading: "kon",
+        meaning: "person"
+    )
 }

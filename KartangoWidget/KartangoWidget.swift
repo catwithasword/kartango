@@ -11,37 +11,6 @@ import AppIntents
 
 
 
-// MARK: - Flip
-struct FlipCardIntent: AppIntent {
-    static var title: LocalizedStringResource = "Flip Card"
-    
-    func perform() async throws -> some IntentResult {
-//        let defaults = UserDefaults.standard
-        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        let current = defaults.bool(forKey: "isFlipped")
-        defaults.set(!current, forKey: "isFlipped")
-        WidgetCenter.shared.reloadAllTimelines()
-        return .result()
-    }
-}
-
-
-//struct Provider: TimelineProvider {
-//    func placeholder(in context: Context) -> CardEntry {
-//        CardEntry(date: Date(), isFlipped: false)
-//    }
-//    
-//    func getSnapshot(in context: Context, completion: @escaping (CardEntry) -> ()) {
-//        completion(CardEntry(date: Date(), isFlipped: false))
-//    }
-//    
-//    func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
-//        let isFlipped = UserDefaults.standard.bool(forKey: "isFlipped")
-//        let entry = CardEntry(date: Date(), isFlipped: isFlipped)
-//        completion(Timeline(entries: [entry], policy: .never))
-//    }
-//}
-
 struct Provider: TimelineProvider {
 
     func placeholder(in context: Context) -> CardEntry {
@@ -66,10 +35,8 @@ struct Provider: TimelineProvider {
         )
     }
     
+    
     func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
-
-        // ✅ USE APP GROUP
-//        let defaults = UserDefaults(suiteName: AppGroup.identifier)
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
 
         let isFlipped = defaults.bool(forKey: "isFlipped")
@@ -89,6 +56,9 @@ struct Provider: TimelineProvider {
     }
 }
 
+
+
+
 struct PlayAudioIntent: AppIntent {
     static var title: LocalizedStringResource = "Play Audio"
 
@@ -99,50 +69,84 @@ struct PlayAudioIntent: AppIntent {
 }
 
 
+func updateCardFromIndex(defaults: UserDefaults) {
+    let index = defaults.integer(forKey: "currentIndex")
+    let words = defaults.stringArray(forKey: "queueWords") ?? []
+    let readings = defaults.stringArray(forKey: "queueReadings") ?? []
+    let meanings = defaults.stringArray(forKey: "queueMeanings") ?? []
 
+    guard index < words.count else {
+        defaults.set("DONE", forKey: "word")
+        defaults.set("", forKey: "reading")
+        defaults.set("", forKey: "meaning")
+        return
+    }
+
+    defaults.set(words[index], forKey: "word")
+    defaults.set(readings[index], forKey: "reading")
+    defaults.set(meanings[index], forKey: "meaning")
+}
+
+// Flip
+struct FlipCardIntent: AppIntent {
+    static var title: LocalizedStringResource = "Flip Card"
+
+    func perform() async throws -> some IntentResult {
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+        let current = defaults.bool(forKey: "isFlipped")
+        defaults.set(!current, forKey: "isFlipped")
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
+// Again
 struct AgainIntent: AppIntent {
     static var title: LocalizedStringResource = "Again"
 
     func perform() async throws -> some IntentResult {
-//        let defaults = UserDefaults.standard
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+
+        // record action (optional but ready)
+        let cardID = defaults.string(forKey: "currentCardID") ?? ""
+        defaults.set(cardID, forKey: "lastActionCardID")
+        defaults.set("again", forKey: "lastActionType")
+
+        // move index
         var index = defaults.integer(forKey: "currentIndex")
-
-        index += 1 // still move forward
+        index += 1
         defaults.set(index, forKey: "currentIndex")
+        updateCardFromIndex(defaults: defaults)
+
         defaults.set(false, forKey: "isFlipped")
-
-        // TODO: store "again" result
-
+        defaults.set(Date().timeIntervalSince1970, forKey: "debug")
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }
 
+// Pass
 struct PassIntent: AppIntent {
     static var title: LocalizedStringResource = "Pass"
 
     func perform() async throws -> some IntentResult {
-//        let defaults = UserDefaults.standard
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        var index = defaults.integer(forKey: "currentIndex")
 
+        let cardID = defaults.string(forKey: "currentCardID") ?? ""
+        defaults.set(cardID, forKey: "lastActionCardID")
+        defaults.set("pass", forKey: "lastActionType")
+
+        var index = defaults.integer(forKey: "currentIndex")
         index += 1
         defaults.set(index, forKey: "currentIndex")
+        updateCardFromIndex(defaults: defaults)
+
         defaults.set(false, forKey: "isFlipped")
-
-        // TODO: store "pass"
-
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }
 
-
-//struct CardEntry: TimelineEntry {
-//    let date: Date
-//    let isFlipped: Bool
-//}
 
 struct CardEntry: TimelineEntry {
     let date: Date
@@ -152,86 +156,104 @@ struct CardEntry: TimelineEntry {
     let meaning: String
 }
 
+
 struct KartangoWidgetEntryView: View {
     var entry: Provider.Entry
 
+    // MAIN BODY
     var body: some View {
         ZStack {
-            
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color.widgetBackground)
-                .padding(-20)
-            Button(intent: FlipCardIntent()) {
-                Color.clear
-            }
-            .buttonStyle(.plain)
-            
             if entry.isFlipped {
-                HStack {
-                    // audio button
-                    Button(intent: PlayAudioIntent()) {
-                        Image(systemName: "speaker.wave.2.fill")
-                            .font(.system(size: 20))
-                            .foregroundColor(.white)
-                            .frame(width: 50, height: 50)
-                            .background(Color.audioButton)
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    VStack(spacing: 6) {
-//                        Text("ひと")
-                        Text(entry.reading)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-//                        Text("人")
-                        Text(entry.word)
-                            .font(.system(size: 40, weight: .bold))
-//                        Text("person")
-                        Text(entry.meaning)
-                            .font(.headline)
-                    } // end VStack
-
-                    Spacer()
-                    
-                    VStack(spacing: 12) {
-                        // again button
-                        Button(intent: AgainIntent()) {
-                            Image(systemName: "arrow.uturn.left")
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 44)
-                                .background(Color.againButton)
-                                .clipShape(Circle())
-                               
-                        }
-                        .buttonStyle(.plain)
-
-                        // pass button
-                        Button(intent: PassIntent()) {
-                            Image(systemName: "arrow.right")
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 44)
-                                .background(Color.passButton)
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                    } // end Vstack
-                } // end HStack
-                .padding()
-            } else { // front card
-                
-//                    Text("人")
-                Text(entry.word)
-                        .font(.system(size: 50, weight: .bold))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                backView
+            } else {
+                frontView
             }
         }
         .containerBackground(.clear, for: .widget)
-
     }
+
+    // FRONT VIEW
+    @ViewBuilder
+    var frontView: some View {
+        Button(intent: FlipCardIntent()) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.widgetBackground)
+                    .padding(-20)
+
+                if entry.word == "DONE" {
+                    Label("All done for today!!", systemImage: "checkmark.circle.fill")
+                        .font(.headline)
+                } else {
+                    Text(entry.word)
+                        .font(.system(size: 50, weight: .bold))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    var backView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.widgetBackground)
+                .padding(-20)
+
+            HStack {
+                Button(intent: PlayAudioIntent()) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Color.audioButton)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.borderless)
+
+                Spacer()
+
+                VStack(spacing: 4) {
+                    Text(entry.word).font(.title2).bold()
+                    Text(entry.reading).font(.caption).foregroundColor(.gray)
+                    Text(entry.meaning).font(.body)
+                }
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button(intent: FlipCardIntent()) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                    }.buttonStyle(.borderless)
+
+                    Button(intent: AgainIntent()) {
+                        Image(systemName: "arrow.uturn.left")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.againButton)
+                            .clipShape(Circle())
+                    }.buttonStyle(.borderless)
+
+                    Button(intent: PassIntent()) {
+                        Image(systemName: "arrow.right")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.passButton)
+                            .clipShape(Circle())
+                    }.buttonStyle(.borderless)
+                }
+            }
+            .padding()
+        }
+    }
+    
+
 }
+
 
 struct KartangoWidget: Widget {
     let kind: String = "KartangoWidget"
@@ -252,13 +274,6 @@ struct KartangoWidget: Widget {
     }
 }
 
-//#Preview(as: .systemMedium) {
-//    KartangoWidget()
-//} timeline: {
-//    CardEntry(date: .now, isFlipped: false)
-//    CardEntry(date: .now, isFlipped: true)
-//}
-
 #Preview(as: .systemMedium) {
     KartangoWidget()
 } timeline: {
@@ -277,3 +292,4 @@ struct KartangoWidget: Widget {
         meaning: "person"
     )
 }
+

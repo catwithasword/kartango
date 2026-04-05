@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DecksView: View {
     let decks: FetchedResults<Deck>
+    let queueState: QueueState
     let importer: DeckImporter
     let onImportTapped: () -> Void
     let onDelete: (IndexSet) -> Void
@@ -36,7 +37,7 @@ struct DecksView: View {
 
             Section("Decks") {
                 ForEach(decks) { deck in
-                    DeckRowView(deck: deck)
+                    DeckRowView(deck: deck, queueState: queueState)
                         .listRowBackground(Color.deckCard)
                 }
                 .onDelete(perform: onDelete)

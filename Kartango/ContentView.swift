@@ -10,10 +10,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.managedObjectContext) private var viewContext
     @State private var importer = DeckImporter()
     @State private var isImporterPresented = false
     @State private var selectedTab: AppTab = .decks
+    @State private var queueState = QueueState()
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Deck.createdAt, ascending: false)],
@@ -45,6 +47,15 @@ struct ContentView: View {
             allowsMultipleSelection: false,
             onCompletion: handleImportResult
         )
+        .onAppear(perform: syncQueueState)
+        .onChange(of: queueSignature) { _, _ in
+            syncQueueState()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                syncQueueState()
+            }
+        }
     }
 
     @ViewBuilder
@@ -53,6 +64,7 @@ struct ContentView: View {
         case .decks:
             DecksView(
                 decks: decks,
+                queueState: queueState,
                 importer: importer,
                 onImportTapped: presentImporter,
                 onDelete: deleteDecks
@@ -65,7 +77,17 @@ struct ContentView: View {
     }
 
     private var totalCardCount: Int {
-        decks.reduce(0) { $0 + $1.sortedCards.count }
+        decks.reduce(0) { $0 + $1.studyCards.count }
+    }
+
+    private var queueSignature: [String] {
+        decks
+            .flatMap { deck in
+                deck.sortedCards.map { card in
+                    "\(deck.id.uuidString):\(card.id.uuidString)"
+                }
+            }
+            .sorted()
     }
 
     private var addDeckButton: some View {
@@ -109,6 +131,107 @@ struct ContentView: View {
             viewContext.rollback()
             importer.importErrorMessage = "Failed to delete the selected deck."
         }
+    }
+
+    private func syncQueueState() {
+        let defaults = UserDefaults(suiteName: AppGroup.identifier)
+        let existingState = QueueStore.load(from: defaults)
+        let todayKey = queueDateKey(for: .now)
+        let libraryCards = makeLibraryQueueCards(using: existingState.againCounts)
+        let libraryCardIDs = Set(libraryCards.map(\.id))
+
+        guard !libraryCards.isEmpty else {
+            let emptyState = QueueState(queueDate: todayKey, cards: [], completedCardIDs: [], againCounts: existingState.againCounts)
+            QueueStore.save(emptyState, to: defaults)
+            queueState = emptyState
+            return
+        }
+
+        if existingState.queueDate == todayKey {
+            queueState = existingState
+            return
+        }
+
+        let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
+        let rebuiltCards = buildDailyQueue(from: libraryCards, againCounts: preservedAgainCounts, defaults: defaults)
+        let rebuiltState = QueueState(
+            queueDate: todayKey,
+            cards: rebuiltCards,
+            completedCardIDs: [],
+            againCounts: preservedAgainCounts
+        )
+        QueueStore.save(rebuiltState, to: defaults)
+        queueState = rebuiltState
+    }
+
+    private func makeLibraryQueueCards(using againCounts: [String: Int]) -> [QueueCard] {
+        decks
+            .flatMap { deck in
+                deck.studyCards.map { card in
+                    QueueCard(
+                        id: card.id.uuidString,
+                        deckID: deck.id.uuidString,
+                        word: card.word,
+                        reading: card.example ?? "",
+                        meaning: card.definitionText,
+                        audioFileName: card.audioFileName
+                    )
+                }
+            }
+            .sorted { lhs, rhs in
+                let lhsAgainCount = againCounts[lhs.id, default: 0]
+                let rhsAgainCount = againCounts[rhs.id, default: 0]
+
+                if lhsAgainCount != rhsAgainCount {
+                    return lhsAgainCount > rhsAgainCount
+                }
+
+                if lhs.deckID != rhs.deckID {
+                    return lhs.deckID < rhs.deckID
+                }
+
+                return lhs.word.localizedCaseInsensitiveCompare(rhs.word) == .orderedAscending
+            }
+    }
+
+    private func buildDailyQueue(
+        from cards: [QueueCard],
+        againCounts: [String: Int],
+        defaults: UserDefaults?
+    ) -> [QueueCard] {
+        let newCardsPerDay = normalizedDailyLimit(
+            defaults?.integer(forKey: "newCardsPerDay") ?? 10
+        )
+        let reviewCardsPerDay = normalizedDailyLimit(
+            defaults?.integer(forKey: "reviewCardsPerDay") ?? 10
+        )
+
+        let reviewCards = cards.filter { againCounts[$0.id, default: 0] > 0 }
+        let newCards = cards.filter { againCounts[$0.id, default: 0] == 0 }
+
+        let selectedReviewCards = Array(reviewCards.prefix(reviewCardsPerDay))
+        let selectedReviewIDs = Set(selectedReviewCards.map(\.id))
+        let selectedNewCards = Array(
+            newCards
+                .filter { !selectedReviewIDs.contains($0.id) }
+                .prefix(newCardsPerDay)
+        )
+
+        return selectedReviewCards + selectedNewCards
+    }
+
+    private func normalizedDailyLimit(_ value: Int) -> Int {
+        let allowedValues = [10, 20, 30, 40, 50]
+        return allowedValues.contains(value) ? value : 10
+    }
+
+    private func queueDateKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }
 

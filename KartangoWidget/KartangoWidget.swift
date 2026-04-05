@@ -170,6 +170,8 @@ struct KartangoWidgetEntryView: View {
             }
         }
         .containerBackground(.clear, for: .widget)
+        .contentTransition(.opacity)    // or .blur(.systemThickMaterial)
+        .animation(.easeInOut(duration: 0.3), value: entry.isFlipped)
     }
 
     // FRONT VIEW

@@ -231,7 +231,7 @@ struct KartangoWidgetEntryView: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.widgetBackground)
                 .padding(-20)
-            
+
             HStack {
                 Button(intent: PlayAudioIntent()) {
                     Image(systemName: "speaker.wave.2.fill")
@@ -241,33 +241,28 @@ struct KartangoWidgetEntryView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.borderless)
-                
+
                 Spacer()
-                
-                VStack(spacing: 4) {
-                    // Text("ひと")
-                    Text(entry.reading)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    //  Text("人")
-                    Text(entry.word)
-                        .font(.system(size: 40, weight: .bold))
-                    // Text("person")
-                    Text(entry.meaning)
-                        .font(.headline)
+
+                // Center content flips card when tapped
+                Button(intent: FlipCardIntent()) {
+                    VStack(spacing: 4) {
+                        Text(entry.reading)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text(entry.word)
+                            .font(.system(size: 40, weight: .bold))
+                        Text(entry.meaning)
+                            .font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
                 }
-                
+                .buttonStyle(.plain)
+
                 Spacer()
-                
+
                 VStack(spacing: 12) {
-                    Button(intent: FlipCardIntent()) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .foregroundColor(.white)
-                            .frame(width: 40, height: 40)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                    }.buttonStyle(.borderless)
-                    
                     Button(intent: AgainIntent()) {
                         Image(systemName: "arrow.uturn.left")
                             .foregroundColor(.white)
@@ -275,7 +270,7 @@ struct KartangoWidgetEntryView: View {
                             .background(Color.againButton)
                             .clipShape(Circle())
                     }.buttonStyle(.borderless)
-                    
+
                     Button(intent: PassIntent()) {
                         Image(systemName: "arrow.right")
                             .foregroundColor(.white)

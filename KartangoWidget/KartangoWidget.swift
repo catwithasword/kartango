@@ -12,14 +12,15 @@ import AppIntents
 
 
 struct Provider: TimelineProvider {
-
+    
     func placeholder(in context: Context) -> CardEntry {
         CardEntry(
             date: Date(),
             isFlipped: false,
             word: "人",
             reading: "ひと",
-            meaning: "person"
+            meaning: "person",
+            hasCard: true
         )
     }
     
@@ -30,7 +31,8 @@ struct Provider: TimelineProvider {
                 isFlipped: false,
                 word: "人",
                 reading: "ひと",
-                meaning: "person"
+                meaning: "person",
+                hasCard: true
             )
         )
     }
@@ -38,20 +40,19 @@ struct Provider: TimelineProvider {
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-
-        let isFlipped = defaults.bool(forKey: "isFlipped")
-        let word = defaults.string(forKey: "word") ?? "—"
-        let reading = defaults.string(forKey: "reading") ?? ""
-        let meaning = defaults.string(forKey: "meaning") ?? ""
-
+        let state = QueueStore.load(from: defaults)
+        let currentCard = state.currentCard
+        let isFlipped = defaults.bool(forKey: AppGroup.isFlippedKey)
+        
         let entry = CardEntry(
             date: Date(),
-            isFlipped: isFlipped,
-            word: word,
-            reading: reading,
-            meaning: meaning
+            isFlipped: isFlipped && currentCard != nil,
+            word: currentCard?.word ?? "Queue complete",
+            reading: currentCard?.reading ?? "",
+            meaning: currentCard?.meaning ?? "",
+            hasCard: currentCard != nil
         )
-
+        
         completion(Timeline(entries: [entry], policy: .never))
     }
 }
@@ -61,7 +62,7 @@ struct Provider: TimelineProvider {
 
 struct PlayAudioIntent: AppIntent {
     static var title: LocalizedStringResource = "Play Audio"
-
+    
     func perform() async throws -> some IntentResult {
         // trigger audio here (App Group / shared state / etc.)
         return .result()
@@ -69,57 +70,44 @@ struct PlayAudioIntent: AppIntent {
 }
 
 
-func updateCardFromIndex(defaults: UserDefaults) {
-    let index = defaults.integer(forKey: "currentIndex")
-    let words = defaults.stringArray(forKey: "queueWords") ?? []
-    let readings = defaults.stringArray(forKey: "queueReadings") ?? []
-    let meanings = defaults.stringArray(forKey: "queueMeanings") ?? []
-
-    guard index < words.count else {
-        defaults.set("DONE", forKey: "word")
-        defaults.set("", forKey: "reading")
-        defaults.set("", forKey: "meaning")
-        return
-    }
-
-    defaults.set(words[index], forKey: "word")
-    defaults.set(readings[index], forKey: "reading")
-    defaults.set(meanings[index], forKey: "meaning")
-}
-
 // Flip
 struct FlipCardIntent: AppIntent {
     static var title: LocalizedStringResource = "Flip Card"
-
+    
     func perform() async throws -> some IntentResult {
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        let current = defaults.bool(forKey: "isFlipped")
-        defaults.set(!current, forKey: "isFlipped")
+        guard QueueStore.load(from: defaults).currentCard != nil else {
+            return .result()
+        }
+        
+        let current = defaults.bool(forKey: AppGroup.isFlippedKey)
+        defaults.set(!current, forKey: AppGroup.isFlippedKey)
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
 }
 
+
 // Again
 struct AgainIntent: AppIntent {
     static var title: LocalizedStringResource = "Again"
-
+    
     func perform() async throws -> some IntentResult {
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-
-        // record action (optional but ready)
-        let cardID = defaults.string(forKey: "currentCardID") ?? ""
-        defaults.set(cardID, forKey: "lastActionCardID")
-        defaults.set("again", forKey: "lastActionType")
-
-        // move index
-        var index = defaults.integer(forKey: "currentIndex")
-        index += 1
-        defaults.set(index, forKey: "currentIndex")
-        updateCardFromIndex(defaults: defaults)
-
-        defaults.set(false, forKey: "isFlipped")
-        defaults.set(Date().timeIntervalSince1970, forKey: "debug")
+        var state = QueueStore.load(from: defaults)
+        
+        guard let currentCard = state.currentCard else {
+            return .result()
+        }
+        
+        state.cards.removeFirst()
+        state.againCounts[currentCard.id, default: 0] += 1
+        if !state.reviewedCardIDs.contains(currentCard.id) {
+            state.reviewedCardIDs.append(currentCard.id)
+        }
+        state.cards.append(currentCard)
+        QueueStore.save(state, to: defaults)
+        
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
@@ -128,20 +116,23 @@ struct AgainIntent: AppIntent {
 // Pass
 struct PassIntent: AppIntent {
     static var title: LocalizedStringResource = "Pass"
-
+    
     func perform() async throws -> some IntentResult {
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-
-        let cardID = defaults.string(forKey: "currentCardID") ?? ""
-        defaults.set(cardID, forKey: "lastActionCardID")
-        defaults.set("pass", forKey: "lastActionType")
-
-        var index = defaults.integer(forKey: "currentIndex")
-        index += 1
-        defaults.set(index, forKey: "currentIndex")
-        updateCardFromIndex(defaults: defaults)
-
-        defaults.set(false, forKey: "isFlipped")
+        
+        var state = QueueStore.load(from: defaults)
+        
+        guard let currentCard = state.currentCard else {
+            return .result()
+        }
+        
+        state.cards.removeFirst()
+        state.completedCardIDs.append(currentCard.id)
+        if !state.reviewedCardIDs.contains(currentCard.id) {
+            state.reviewedCardIDs.append(currentCard.id)
+        }
+        QueueStore.save(state, to: defaults)
+        
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
@@ -154,12 +145,13 @@ struct CardEntry: TimelineEntry {
     let word: String
     let reading: String
     let meaning: String
+    let hasCard: Bool
 }
 
 
 struct KartangoWidgetEntryView: View {
     var entry: Provider.Entry
-
+    
     // MAIN BODY
     var body: some View {
         ZStack {
@@ -173,7 +165,7 @@ struct KartangoWidgetEntryView: View {
         .contentTransition(.opacity)    // or .blur(.systemThickMaterial)
         .animation(.easeInOut(duration: 0.3), value: entry.isFlipped)
     }
-
+    
     // FRONT VIEW
     @ViewBuilder
     var frontView: some View {
@@ -182,10 +174,16 @@ struct KartangoWidgetEntryView: View {
                 RoundedRectangle(cornerRadius: 20)
                     .fill(Color.widgetBackground)
                     .padding(-20)
-
-                if entry.word == "DONE" {
-                    Label("All done for today!!", systemImage: "checkmark.circle.fill")
+                
+                if !entry.hasCard {
+                    // Label("All done for today!!", systemImage: "checkmark.circle.fill")
+                    // .font(.headline)
+//                    Text("Import a deck in the app to refill today's queue.")
+                    Text("All done for today!!")
                         .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+                        .padding(24)
                 } else {
                     Text(entry.word)
                         .font(.system(size: 50, weight: .bold))
@@ -195,14 +193,14 @@ struct KartangoWidgetEntryView: View {
         }
         .buttonStyle(.plain)
     }
-
+    
     @ViewBuilder
     var backView: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.widgetBackground)
                 .padding(-20)
-
+            
             HStack {
                 Button(intent: PlayAudioIntent()) {
                     Image(systemName: "speaker.wave.2.fill")
@@ -212,17 +210,24 @@ struct KartangoWidgetEntryView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.borderless)
-
+                
                 Spacer()
-
+                
                 VStack(spacing: 4) {
-                    Text(entry.word).font(.title2).bold()
-                    Text(entry.reading).font(.caption).foregroundColor(.gray)
-                    Text(entry.meaning).font(.body)
+                    // Text("ひと")
+                    Text(entry.reading)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    //  Text("人")
+                    Text(entry.word)
+                        .font(.system(size: 40, weight: .bold))
+                    // Text("person")
+                    Text(entry.meaning)
+                        .font(.headline)
                 }
-
+                
                 Spacer()
-
+                
                 VStack(spacing: 12) {
                     Button(intent: FlipCardIntent()) {
                         Image(systemName: "arrow.triangle.2.circlepath")
@@ -231,7 +236,7 @@ struct KartangoWidgetEntryView: View {
                             .background(Color.blue)
                             .clipShape(Circle())
                     }.buttonStyle(.borderless)
-
+                    
                     Button(intent: AgainIntent()) {
                         Image(systemName: "arrow.uturn.left")
                             .foregroundColor(.white)
@@ -239,7 +244,7 @@ struct KartangoWidgetEntryView: View {
                             .background(Color.againButton)
                             .clipShape(Circle())
                     }.buttonStyle(.borderless)
-
+                    
                     Button(intent: PassIntent()) {
                         Image(systemName: "arrow.right")
                             .foregroundColor(.white)
@@ -253,7 +258,7 @@ struct KartangoWidgetEntryView: View {
         }
     }
     
-
+    
 }
 
 
@@ -284,14 +289,16 @@ struct KartangoWidget: Widget {
         isFlipped: false,
         word: "human",
         reading: "kon",
-        meaning: "person"
+        meaning: "person",
+        hasCard: true
     )
     CardEntry(
         date: .now,
         isFlipped: true,
         word: "human",
         reading: "kon",
-        meaning: "person"
+        meaning: "person",
+        hasCard: true
     )
 }
 

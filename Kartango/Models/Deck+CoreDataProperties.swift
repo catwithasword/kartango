@@ -16,4 +16,14 @@ extension Deck: Identifiable {
     var sortedCards: [Card] {
         (cards ?? []).sorted { $0.word.localizedCaseInsensitiveCompare($1.word) == .orderedAscending }
     }
+
+    var studyCards: [Card] {
+        sortedCards.filter(\.isIncludedInStudyQueue)
+    }
+}
+
+extension Card {
+    var isIncludedInStudyQueue: Bool {
+        !word.localizedCaseInsensitiveContains("Welcome to Kaishi")
+    }
 }

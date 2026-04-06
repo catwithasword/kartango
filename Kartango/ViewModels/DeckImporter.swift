@@ -33,6 +33,7 @@ final class DeckImporter {
                     suggestedDeckName: suggestedDeckName,
                     persistenceController: persistenceController
                 )
+                WidgetCenter.shared.reloadAllTimelines()
             } catch {
                 importErrorMessage = error.localizedDescription
             }

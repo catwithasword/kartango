@@ -11,11 +11,12 @@ import UniformTypeIdentifiers
 import WidgetKit
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.managedObjectContext) private var viewContext
     @State private var importer = DeckImporter()
     @State private var isImporterPresented = false
     @State private var selectedTab: AppTab = .decks
-    
+    @State private var queueState = QueueState()
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Deck.createdAt, ascending: false)],
         animation: .default
@@ -41,10 +42,6 @@ struct ContentView: View {
                 .padding(.bottom, 12)
         }
         .onAppear {
-            clearOldData()
-            setupTodayQueue()
-            processLastAction()     // optional but safe
-            updateWidgetCard()      // push first card to widget
         }
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -52,7 +49,15 @@ struct ContentView: View {
             allowsMultipleSelection: false,
             onCompletion: handleImportResult
         )
-        
+        .onAppear(perform: syncQueueState)
+        .onChange(of: queueSignature) { _, _ in
+            syncQueueState()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                syncQueueState()
+            }
+        }
     }
     
     @ViewBuilder
@@ -61,19 +66,36 @@ struct ContentView: View {
         case .decks:
             DecksView(
                 decks: decks,
+                queueState: queueState,
                 importer: importer,
                 onImportTapped: presentImporter,
                 onDelete: deleteDecks
             )
         case .stats:
-            StatsView(deckCount: decks.count, totalCardCount: totalCardCount)
+            StatsView(
+                deckCount: decks.count,
+                totalCardCount: totalCardCount,
+                queueState: queueState,
+                onRebuildTodayQueue: rebuildTodayQueue,
+                onSimulateTomorrowQueue: simulateTomorrowQueue
+            )
         case .settings:
             SettingsView()
         }
     }
     
     private var totalCardCount: Int {
-        decks.reduce(0) { $0 + $1.sortedCards.count }
+        decks.reduce(0) { $0 + $1.studyCards.count }
+    }
+
+    private var queueSignature: [String] {
+        decks
+            .flatMap { deck in
+                deck.sortedCards.map { card in
+                    "\(deck.id.uuidString):\(card.id.uuidString)"
+                }
+            }
+            .sorted()
     }
     
     private var addDeckButton: some View {
@@ -118,107 +140,229 @@ struct ContentView: View {
             importer.importErrorMessage = "Failed to delete the selected deck."
         }
     }
-    
-    // test
-    private func setupTodayQueue() {
-        // Get shared storage between app + widget
+
+    private func syncQueueState() {
         let defaults = UserDefaults(suiteName: AppGroup.identifier)
-        
-        // Don't reset if queue already exists
-        if let existing = defaults?.stringArray(forKey: "todayQueue"), !existing.isEmpty {
-            print("QUEUE ALREADY EXISTS, SKIPPING SETUP")
-            return
-        }
+        let existingState = QueueStore.load(from: defaults)
+        let todayKey = queueDateKey(for: .now)
+        let libraryCards = makeLibraryQueueCards(using: existingState.againCounts)
+        let libraryCardIDs = Set(libraryCards.map(\.id))
+        let preservedReviewedCardIDs = preservedReviewedCardIDs(
+            from: existingState,
+            libraryCardIDs: libraryCardIDs
+        )
 
-        let request: NSFetchRequest<Card> = Card.fetchRequest()
-        request.fetchLimit = 10
-
-        // Fetch cards from database
-        if let cards = try? viewContext.fetch(request) {
-            let words = cards.map { $0.word }
-            let readings = cards.map { $0.example }
-            let meanings = cards.map { $0.definitionText }
-            
-            // Save arrays into App Group (shared with widget)
-            defaults?.set(words, forKey: "queueWords")
-            defaults?.set(readings, forKey: "queueReadings")
-            defaults?.set(meanings, forKey: "queueMeanings")
-
-            let ids = cards.map { $0.id.uuidString }
-            defaults?.set(ids, forKey: "todayQueue")
-            defaults?.set(0, forKey: "currentIndex")
-            defaults?.set(false, forKey: "isFlipped")
-
-            print("TODAY QUEUE:", ids.count)
-        }
-    }
-
-    // 2) Put CURRENT card into App Group (what widget reads)
-    private func updateWidgetCard() {
-        let defaults = UserDefaults(suiteName: AppGroup.identifier)
-
-        let ids = defaults?.stringArray(forKey: "todayQueue") ?? []
-        let index = defaults?.integer(forKey: "currentIndex") ?? 0
-        
-        // If we've reached the end of the queue
-        guard index < ids.count else {
-            defaults?.set("DONE", forKey: "word")
-            defaults?.set("", forKey: "meaning")
-            defaults?.set("", forKey: "reading")
-            defaults?.set("", forKey: "currentCardID")
+        guard !libraryCards.isEmpty else {
+            let emptyState = QueueState(
+                queueDate: todayKey,
+                cards: [],
+                completedCardIDs: [],
+                reviewedCardIDs: preservedReviewedCardIDs,
+                againCounts: existingState.againCounts
+            )
+            QueueStore.save(emptyState, to: defaults)
             WidgetCenter.shared.reloadAllTimelines()
+            queueState = emptyState
             return
         }
 
-        let idString = ids[index]
-        guard let uuid = UUID(uuidString: idString) else { return }
-
-        // Fetch the card from database
-        let request: NSFetchRequest<Card> = Card.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", uuid as CVarArg)
-
-        if let card = try? viewContext.fetch(request).first {
-            defaults?.set(card.word, forKey: "word")
-            defaults?.set(card.definitionText, forKey: "meaning")
-            defaults?.set(card.example ?? "", forKey: "reading")
-            defaults?.set(card.id.uuidString, forKey: "currentCardID")
-        }
-
-        WidgetCenter.shared.reloadAllTimelines()
-    }
-
-    // 3) (Optional now, useful later) process last action -> save to DB
-    private func processLastAction() {
-        let defaults = UserDefaults(suiteName: AppGroup.identifier)
-
-        // Read what user did (saved earlier by widget)
-        guard let cardIDString = defaults?.string(forKey: "lastActionCardID"),
-              let action = defaults?.string(forKey: "lastActionType"),
-              let uuid = UUID(uuidString: cardIDString) else { return }
-
-        let request: NSFetchRequest<Card> = Card.fetchRequest()
-        request.predicate = NSPredicate(format: "id == %@", uuid as CVarArg)
-
-        if let card = try? viewContext.fetch(request).first {
-            if action == "again" {
-                print("AGAIN:", card.word)
-                // TODO: update properties if you add them (e.g., againCount += 1)
-            } else {
-                print("PASS:", card.word)
-                // TODO: mark doneToday = true (if you add field)
+        if existingState.queueDate == todayKey {
+            if existingState.reviewedCardIDs != preservedReviewedCardIDs {
+                let migratedState = QueueState(
+                    queueDate: existingState.queueDate,
+                    cards: existingState.cards,
+                    completedCardIDs: existingState.completedCardIDs,
+                    reviewedCardIDs: preservedReviewedCardIDs,
+                    againCounts: existingState.againCounts
+                )
+                QueueStore.save(migratedState, to: defaults)
+                WidgetCenter.shared.reloadAllTimelines()
+                queueState = migratedState
+                return
             }
-            try? viewContext.save()
+
+            queueState = existingState
+            return
         }
 
-        defaults?.removeObject(forKey: "lastActionCardID")
-        defaults?.removeObject(forKey: "lastActionType")
+        let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
+        let rebuiltCards = buildDailyQueue(
+            from: libraryCards,
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts,
+            defaults: defaults
+        )
+        let rebuiltState = QueueState(
+            queueDate: todayKey,
+            cards: rebuiltCards,
+            completedCardIDs: [],
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts
+        )
+        QueueStore.save(rebuiltState, to: defaults)
+        WidgetCenter.shared.reloadAllTimelines()
+        queueState = rebuiltState
     }
-    
-    private func clearOldData() {
+
+    private func rebuildTodayQueue() {
+        rebuildQueue(for: .now)
+    }
+
+    private func simulateTomorrowQueue() {
+        guard let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now) else {
+            return
+        }
+
+        rebuildQueue(for: tomorrow)
+    }
+
+    private func rebuildQueue(for date: Date) {
         let defaults = UserDefaults(suiteName: AppGroup.identifier)
-        // Wipe EVERYTHING in shared storage
-        defaults?.removePersistentDomain(forName: AppGroup.identifier)
-        print("CLEARED OLD DATA")
+        let existingState = QueueStore.load(from: defaults)
+        let queueKey = queueDateKey(for: date)
+        let libraryCards = makeLibraryQueueCards(using: existingState.againCounts)
+        let libraryCardIDs = Set(libraryCards.map(\.id))
+        let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
+        let preservedReviewedCardIDs = preservedReviewedCardIDs(
+            from: existingState,
+            libraryCardIDs: libraryCardIDs
+        )
+
+        let rebuiltCards = buildDailyQueue(
+            from: libraryCards,
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts,
+            defaults: defaults
+        )
+        let rebuiltState = QueueState(
+            queueDate: queueKey,
+            cards: rebuiltCards,
+            completedCardIDs: [],
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts
+        )
+
+        QueueStore.save(rebuiltState, to: defaults)
+        WidgetCenter.shared.reloadAllTimelines()
+        queueState = rebuiltState
+    }
+
+    private func makeLibraryQueueCards(using againCounts: [String: Int]) -> [QueueCard] {
+        decks
+            .flatMap { deck in
+                deck.studyCards.map { card in
+                    QueueCard(
+                        id: card.id.uuidString,
+                        deckID: deck.id.uuidString,
+                        word: card.word,
+                        reading: card.example ?? "",
+                        meaning: card.definitionText,
+                        audioFileName: card.audioFileName
+                    )
+                }
+            }
+            .sorted { lhs, rhs in
+                let lhsAgainCount = againCounts[lhs.id, default: 0]
+                let rhsAgainCount = againCounts[rhs.id, default: 0]
+
+                if lhsAgainCount != rhsAgainCount {
+                    return lhsAgainCount > rhsAgainCount
+                }
+
+                if lhs.deckID != rhs.deckID {
+                    return lhs.deckID < rhs.deckID
+                }
+
+                return lhs.word.localizedCaseInsensitiveCompare(rhs.word) == .orderedAscending
+            }
+    }
+
+    private func buildDailyQueue(
+        from cards: [QueueCard],
+        reviewedCardIDs: [String],
+        againCounts: [String: Int],
+        defaults: UserDefaults?
+    ) -> [QueueCard] {
+        let newCardsPerDay = normalizedDailyLimit(
+            defaults?.integer(forKey: "newCardsPerDay") ?? 10
+        )
+        let reviewCardsPerDay = normalizedDailyLimit(
+            defaults?.integer(forKey: "reviewCardsPerDay") ?? 10
+        )
+
+        let reviewedCardIDSet = Set(reviewedCardIDs)
+        let reviewCards = cards.filter { reviewedCardIDSet.contains($0.id) }
+        let newCards = cards.filter { !reviewedCardIDSet.contains($0.id) }
+
+        let selectedReviewCards = weightedReviewSelection(
+            from: reviewCards,
+            againCounts: againCounts,
+            limit: reviewCardsPerDay
+        )
+        let selectedReviewIDs = Set(selectedReviewCards.map(\.id))
+        let selectedNewCards = Array(
+            newCards
+                .filter { !selectedReviewIDs.contains($0.id) }
+                .prefix(newCardsPerDay)
+        )
+
+        return selectedReviewCards + selectedNewCards
+    }
+
+    private func weightedReviewSelection(
+        from reviewCards: [QueueCard],
+        againCounts: [String: Int],
+        limit: Int
+    ) -> [QueueCard] {
+        guard reviewCards.count > limit else {
+            return reviewCards
+        }
+
+        var generator = SystemRandomNumberGenerator()
+        var remainingCards = reviewCards
+        var selectedCards: [QueueCard] = []
+
+        while selectedCards.count < limit, !remainingCards.isEmpty {
+            let totalWeight = remainingCards.reduce(0) { partialResult, card in
+                partialResult + max(1, againCounts[card.id, default: 0] + 1)
+            }
+            var randomWeight = Int.random(in: 0..<totalWeight, using: &generator)
+
+            for (index, card) in remainingCards.enumerated() {
+                randomWeight -= max(1, againCounts[card.id, default: 0] + 1)
+
+                if randomWeight < 0 {
+                    selectedCards.append(card)
+                    remainingCards.remove(at: index)
+                    break
+                }
+            }
+        }
+
+        return selectedCards
+    }
+
+    private func preservedReviewedCardIDs(
+        from existingState: QueueState,
+        libraryCardIDs: Set<String>
+    ) -> [String] {
+        let reviewedIDs = Set(existingState.reviewedCardIDs)
+        let migratedIDs = reviewedIDs.union(existingState.againCounts.keys)
+        return migratedIDs.filter { libraryCardIDs.contains($0) }.sorted()
+    }
+
+    private func normalizedDailyLimit(_ value: Int) -> Int {
+        let allowedValues = [10, 20, 30, 40, 50]
+        return allowedValues.contains(value) ? value : 10
+    }
+
+    private func queueDateKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }
 

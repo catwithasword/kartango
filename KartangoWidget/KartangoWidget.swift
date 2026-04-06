@@ -8,6 +8,7 @@
 import WidgetKit
 import SwiftUI
 import AppIntents
+import AVFAudio
 
 
 
@@ -62,9 +63,39 @@ struct Provider: TimelineProvider {
 
 struct PlayAudioIntent: AppIntent {
     static var title: LocalizedStringResource = "Play Audio"
-    
+    // NO openAppWhenRun — stays in background ✅
+
     func perform() async throws -> some IntentResult {
-        // trigger audio here (App Group / shared state / etc.)
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+        let state = QueueStore.load(from: defaults)
+
+        guard let audioFileName = state.currentCard?.audioFileName,
+              !audioFileName.isEmpty else { return .result() }
+
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: AppGroup.identifier
+        ) else { return .result() }
+
+        let fileURL = containerURL
+            .appendingPathComponent("ImportedAudio")
+            .appendingPathComponent(audioFileName)
+
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return .result() }
+
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let player = try AVAudioPlayer(contentsOf: fileURL)
+            player.prepareToPlay()
+            player.play()
+
+            // Keep alive until audio finishes
+            let duration = player.duration
+            try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+        } catch {
+            print("Audio error: \(error)")
+        }
+
         return .result()
     }
 }

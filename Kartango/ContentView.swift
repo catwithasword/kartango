@@ -17,30 +17,31 @@ struct ContentView: View {
     @State private var isImporterPresented = false
     @State private var selectedTab: AppTab = .decks
     @State private var queueState = QueueState()
-
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Deck.createdAt, ascending: false)],
         animation: .default
     )
     private var decks: FetchedResults<Deck>
-
+    
     var body: some View {
         ZStack {
             selectedTabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.brightBeige.ignoresSafeArea())
-
+            
             if selectedTab == .decks && !decks.isEmpty {
                 addDeckButton
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 26)
                     .padding(.bottom, 132)
             }
-
+            
             CustomTabBar(selectedTab: $selectedTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
+        }
+        .onAppear {
         }
         .fileImporter(
             isPresented: $isImporterPresented,
@@ -58,7 +59,7 @@ struct ContentView: View {
             }
         }
     }
-
+    
     @ViewBuilder
     private var selectedTabContent: some View {
         switch selectedTab {
@@ -82,7 +83,7 @@ struct ContentView: View {
             SettingsView()
         }
     }
-
+    
     private var totalCardCount: Int {
         decks.reduce(0) { $0 + $1.studyCards.count }
     }
@@ -96,7 +97,7 @@ struct ContentView: View {
             }
             .sorted()
     }
-
+    
     private var addDeckButton: some View {
         Button(action: presentImporter) {
             Image(systemName: "plus")
@@ -108,30 +109,30 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
     }
-
+    
     private func presentImporter() {
         isImporterPresented = true
     }
-
+    
     private func handleImportResult(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
             guard let fileURL = urls.first else {
                 return
             }
-
+            
             importer.importDeck(from: fileURL, persistenceController: .shared)
         case .failure(let error):
             importer.importErrorMessage = error.localizedDescription
         }
     }
-
+    
     private func deleteDecks(at offsets: IndexSet) {
         for offset in offsets {
             let deck = decks[offset]
             viewContext.delete(deck)
         }
-
+        
         do {
             try viewContext.save()
         } catch {

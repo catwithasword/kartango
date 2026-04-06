@@ -41,17 +41,21 @@ struct ContentView: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
         }
-        .onAppear {
-        }
         .fileImporter(
             isPresented: $isImporterPresented,
             allowedContentTypes: [.ankiPackage],
             allowsMultipleSelection: false,
             onCompletion: handleImportResult
         )
-        .onAppear(perform: syncQueueState)
-        .onChange(of: queueSignature) { _, _ in
+//        .onAppear(perform: syncQueueState)
+        .onAppear {
+            saveLibraryToDefaults()
             syncQueueState()
+        }
+        .onChange(of: queueSignature) { _, _ in
+            saveLibraryToDefaults()// new
+            syncQueueState()
+            
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -363,6 +367,24 @@ struct ContentView: View {
         formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
+    }
+    
+    private func saveLibraryToDefaults() {
+        let defaults = UserDefaults(suiteName: AppGroup.identifier)
+        let cards = decks.flatMap { deck in
+            deck.studyCards.map { card in
+                QueueCard(
+                    id: card.id.uuidString,
+                    deckID: deck.id.uuidString,
+                    word: card.word,
+                    reading: card.example ?? "",
+                    meaning: card.definitionText,
+                    audioFileName: card.audioFileName
+                )
+            }
+        }
+        let encoded = try? JSONEncoder().encode(cards)
+        defaults?.set(encoded, forKey: "allLibraryCards")
     }
 }
 

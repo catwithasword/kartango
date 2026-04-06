@@ -56,11 +56,21 @@
 			);
 			target = 776C342B2F6712490016BF30 /* KartangoWidgetExtension */;
 		};
+		7A5CC3392F8374DE00EA9491 /* Exceptions for "Kartango" folder in "KartangoWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				QueueBuilder.swift,
+			);
+			target = 776C342B2F6712490016BF30 /* KartangoWidgetExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		776C33E72F67115F0016BF30 /* Kartango */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7A5CC3392F8374DE00EA9491 /* Exceptions for "Kartango" folder in "KartangoWidgetExtension" target */,
+			);
 			path = Kartango;
 			sourceTree = "<group>";
 		};

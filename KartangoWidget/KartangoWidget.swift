@@ -38,22 +38,92 @@ struct Provider: TimelineProvider {
     }
     
     
+//    func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
+//        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+//        let state = QueueStore.load(from: defaults)
+//        let currentCard = state.currentCard
+//        let isFlipped = defaults.bool(forKey: AppGroup.isFlippedKey)
+//        
+//        let entry = CardEntry(
+//            date: Date(),
+//            isFlipped: isFlipped && currentCard != nil,
+//            word: currentCard?.word ?? "Queue complete",
+//            reading: currentCard?.reading ?? "",
+//            meaning: currentCard?.meaning ?? "",
+//            hasCard: currentCard != nil
+//        )
+//        
+//        completion(Timeline(entries: [entry], policy: .never))
+//    }
+    
     func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
-        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        let state = QueueStore.load(from: defaults)
-        let currentCard = state.currentCard
-        let isFlipped = defaults.bool(forKey: AppGroup.isFlippedKey)
         
+        // TEMPORARY RESET - step 1
+//        let resetDefaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+//        var resetState = QueueStore.load(from: resetDefaults)
+//        resetState = QueueState(
+//            queueDate: "2000-01-01",
+//            cards: resetState.cards,
+//            completedCardIDs: resetState.completedCardIDs,
+//            reviewedCardIDs: resetState.reviewedCardIDs,
+//            againCounts: resetState.againCounts
+//        )
+//        QueueStore.save(resetState, to: resetDefaults)
+//        
+        
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+        var state = QueueStore.load(from: defaults)
+//        let todayKey = QueueBuilder.queueDateKey(for: .now)
+        let todayKey = QueueBuilder.queueDateKey(for: Calendar.current.date(byAdding: .day, value: -1, to: .now)!)
+
+        // DEBUG - remove after testing
+        let data = defaults.data(forKey: "allLibraryCards") ?? Data()
+        let allCards = (try? JSONDecoder().decode([QueueCard].self, from: data)) ?? []
+        print("🃏 allLibraryCards count: \(allCards.count)")
+        print("📅 state.queueDate: \(state.queueDate)")
+        print("📅 todayKey: \(todayKey)")
+        print("🔄 will rebuild: \(state.queueDate != todayKey)")
+        print("📦 current queue count: \(state.cards.count)")
+        
+        
+        
+        // Rebuild queue if it's a new day
+        if state.queueDate != todayKey {
+            let data = defaults.data(forKey: "allLibraryCards") ?? Data()
+            let allCards = (try? JSONDecoder().decode([QueueCard].self, from: data)) ?? []
+
+            let rebuiltCards = QueueBuilder.buildDailyQueue(
+                from: allCards,
+                reviewedCardIDs: state.reviewedCardIDs,
+                againCounts: state.againCounts,
+                defaults: defaults
+            )
+            state = QueueState(
+                queueDate: todayKey,
+                cards: rebuiltCards,
+                completedCardIDs: [],
+                reviewedCardIDs: state.reviewedCardIDs,
+                againCounts: state.againCounts
+            )
+            QueueStore.save(state, to: defaults)
+        }
+
+        let isFlipped = defaults.bool(forKey: AppGroup.isFlippedKey)
+        let currentCard = state.currentCard
+
         let entry = CardEntry(
             date: Date(),
             isFlipped: isFlipped && currentCard != nil,
-            word: currentCard?.word ?? "Queue complete",
+            word: currentCard?.word ?? "Open app to refresh",
             reading: currentCard?.reading ?? "",
             meaning: currentCard?.meaning ?? "",
             hasCard: currentCard != nil
         )
-        
-        completion(Timeline(entries: [entry], policy: .never))
+
+        // Wake up at midnight to rebuild tomorrow's queue
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now)!
+        let midnight = Calendar.current.startOfDay(for: tomorrow)
+        completion(Timeline(entries: [entry], policy: .after(midnight)))
     }
 }
 

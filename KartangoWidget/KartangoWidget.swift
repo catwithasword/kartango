@@ -114,6 +114,9 @@ struct AgainIntent: AppIntent {
 
         state.cards.removeFirst()
         state.againCounts[currentCard.id, default: 0] += 1
+        if !state.reviewedCardIDs.contains(currentCard.id) {
+            state.reviewedCardIDs.append(currentCard.id)
+        }
         state.cards.append(currentCard)
         QueueStore.save(state, to: defaults)
 

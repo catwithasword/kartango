@@ -8,6 +8,7 @@
 import CoreData
 import SwiftUI
 import UniformTypeIdentifiers
+import WidgetKit
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -70,7 +71,13 @@ struct ContentView: View {
                 onDelete: deleteDecks
             )
         case .stats:
-            StatsView(deckCount: decks.count, totalCardCount: totalCardCount)
+            StatsView(
+                deckCount: decks.count,
+                totalCardCount: totalCardCount,
+                queueState: queueState,
+                onRebuildTodayQueue: rebuildTodayQueue,
+                onSimulateTomorrowQueue: simulateTomorrowQueue
+            )
         case .settings:
             SettingsView()
         }
@@ -139,27 +146,45 @@ struct ContentView: View {
         let todayKey = queueDateKey(for: .now)
         let libraryCards = makeLibraryQueueCards(using: existingState.againCounts)
         let libraryCardIDs = Set(libraryCards.map(\.id))
+        let preservedReviewedCardIDs = preservedReviewedCardIDs(
+            from: existingState,
+            libraryCardIDs: libraryCardIDs
+        )
 
         guard !libraryCards.isEmpty else {
             let emptyState = QueueState(
                 queueDate: todayKey,
                 cards: [],
                 completedCardIDs: [],
-                reviewedCardIDs: existingState.reviewedCardIDs,
+                reviewedCardIDs: preservedReviewedCardIDs,
                 againCounts: existingState.againCounts
             )
             QueueStore.save(emptyState, to: defaults)
+            WidgetCenter.shared.reloadAllTimelines()
             queueState = emptyState
             return
         }
 
         if existingState.queueDate == todayKey {
+            if existingState.reviewedCardIDs != preservedReviewedCardIDs {
+                let migratedState = QueueState(
+                    queueDate: existingState.queueDate,
+                    cards: existingState.cards,
+                    completedCardIDs: existingState.completedCardIDs,
+                    reviewedCardIDs: preservedReviewedCardIDs,
+                    againCounts: existingState.againCounts
+                )
+                QueueStore.save(migratedState, to: defaults)
+                WidgetCenter.shared.reloadAllTimelines()
+                queueState = migratedState
+                return
+            }
+
             queueState = existingState
             return
         }
 
         let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
-        let preservedReviewedCardIDs = existingState.reviewedCardIDs.filter { libraryCardIDs.contains($0) }
         let rebuiltCards = buildDailyQueue(
             from: libraryCards,
             reviewedCardIDs: preservedReviewedCardIDs,
@@ -174,6 +199,50 @@ struct ContentView: View {
             againCounts: preservedAgainCounts
         )
         QueueStore.save(rebuiltState, to: defaults)
+        WidgetCenter.shared.reloadAllTimelines()
+        queueState = rebuiltState
+    }
+
+    private func rebuildTodayQueue() {
+        rebuildQueue(for: .now)
+    }
+
+    private func simulateTomorrowQueue() {
+        guard let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now) else {
+            return
+        }
+
+        rebuildQueue(for: tomorrow)
+    }
+
+    private func rebuildQueue(for date: Date) {
+        let defaults = UserDefaults(suiteName: AppGroup.identifier)
+        let existingState = QueueStore.load(from: defaults)
+        let queueKey = queueDateKey(for: date)
+        let libraryCards = makeLibraryQueueCards(using: existingState.againCounts)
+        let libraryCardIDs = Set(libraryCards.map(\.id))
+        let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
+        let preservedReviewedCardIDs = preservedReviewedCardIDs(
+            from: existingState,
+            libraryCardIDs: libraryCardIDs
+        )
+
+        let rebuiltCards = buildDailyQueue(
+            from: libraryCards,
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts,
+            defaults: defaults
+        )
+        let rebuiltState = QueueState(
+            queueDate: queueKey,
+            cards: rebuiltCards,
+            completedCardIDs: [],
+            reviewedCardIDs: preservedReviewedCardIDs,
+            againCounts: preservedAgainCounts
+        )
+
+        QueueStore.save(rebuiltState, to: defaults)
+        WidgetCenter.shared.reloadAllTimelines()
         queueState = rebuiltState
     }
 
@@ -270,6 +339,15 @@ struct ContentView: View {
         }
 
         return selectedCards
+    }
+
+    private func preservedReviewedCardIDs(
+        from existingState: QueueState,
+        libraryCardIDs: Set<String>
+    ) -> [String] {
+        let reviewedIDs = Set(existingState.reviewedCardIDs)
+        let migratedIDs = reviewedIDs.union(existingState.againCounts.keys)
+        return migratedIDs.filter { libraryCardIDs.contains($0) }.sorted()
     }
 
     private func normalizedDailyLimit(_ value: Int) -> Int {

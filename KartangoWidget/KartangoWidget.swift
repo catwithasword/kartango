@@ -232,6 +232,13 @@ struct KartangoWidgetEntryView: View {
                 .fill(Color.widgetBackground)
                 .padding(-20)
 
+            // Full-size flip target behind controls; buttons above will intercept their areas
+            Button(intent: FlipCardIntent()) {
+                Color.clear
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+
             HStack {
                 Button(intent: PlayAudioIntent()) {
                     Image(systemName: "speaker.wave.2.fill")
@@ -245,20 +252,17 @@ struct KartangoWidgetEntryView: View {
                 Spacer()
 
                 // Center content flips card when tapped
-                Button(intent: FlipCardIntent()) {
-                    VStack(spacing: 4) {
-                        Text(entry.reading)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(entry.word)
-                            .font(.system(size: 40, weight: .bold))
-                        Text(entry.meaning)
-                            .font(.headline)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                VStack(spacing: 4) {
+                    Text(entry.reading)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(entry.word)
+                        .font(.system(size: 40, weight: .bold))
+                    Text(entry.meaning)
+                        .font(.headline)
                 }
-                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
 
                 Spacer()
 
@@ -281,6 +285,14 @@ struct KartangoWidgetEntryView: View {
                 }
             }
             .padding()
+
+//            // Tap anywhere in the remaining area (excluding side button columns) to flip
+//            Button(intent: FlipCardIntent()) {
+//                Color.clear
+//            }
+//            .buttonStyle(.plain)
+//            .contentShape(Rectangle())
+//            .padding(.horizontal, 88) // exclude approx width of side controls + spacing
         }
     }
     
@@ -296,10 +308,12 @@ struct KartangoWidget: Widget {
             if #available(macOS 14.0, iOS 17.0, *) {
                 KartangoWidgetEntryView(entry: entry)
                     .containerBackground(.fill.tertiary, for: .widget)
+                    .widgetURL(nil)
             } else {
                 KartangoWidgetEntryView(entry: entry)
                     .padding()
                     .background()
+                    .widgetURL(nil)
             }
         }
         .configurationDisplayName("My Widget")
@@ -327,4 +341,5 @@ struct KartangoWidget: Widget {
         hasCard: true
     )
 }
+
 

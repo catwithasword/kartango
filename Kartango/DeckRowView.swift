@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DeckRowView: View {
     let deck: Deck
+    let queueState: QueueState
 
     var body: some View {
         HStack(spacing: 16) {
@@ -29,10 +30,21 @@ struct DeckRowView: View {
     }
 
     private var reviewedCount: Int {
-        0
+        let remainingReviewIDs = Set(
+            queueState.cards
+                .filter { queueState.reviewedCardIDs.contains($0.id) }
+                .map(\.id)
+        )
+        return deck.studyCards.filter { remainingReviewIDs.contains($0.id.uuidString) }.count
     }
 
     private var remainingCount: Int {
-        deck.sortedCards.count
+        let reviewedCardIDs = Set(queueState.reviewedCardIDs)
+        let remainingNewIDs = Set(
+            queueState.cards
+                .filter { !reviewedCardIDs.contains($0.id) }
+                .map(\.id)
+        )
+        return deck.studyCards.filter { remainingNewIDs.contains($0.id.uuidString) }.count
     }
 }

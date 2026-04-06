@@ -16,10 +16,13 @@ struct FlipCardIntent: AppIntent {
     static var title: LocalizedStringResource = "Flip Card"
     
     func perform() async throws -> some IntentResult {
-//        let defaults = UserDefaults.standard
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        let current = defaults.bool(forKey: "isFlipped")
-        defaults.set(!current, forKey: "isFlipped")
+        guard QueueStore.load(from: defaults).currentCard != nil else {
+            return .result()
+        }
+
+        let current = defaults.bool(forKey: AppGroup.isFlippedKey)
+        defaults.set(!current, forKey: AppGroup.isFlippedKey)
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
@@ -50,7 +53,8 @@ struct Provider: TimelineProvider {
             isFlipped: false,
             word: "人",
             reading: "ひと",
-            meaning: "person"
+            meaning: "person",
+            hasCard: true
         )
     }
     
@@ -61,28 +65,25 @@ struct Provider: TimelineProvider {
                 isFlipped: false,
                 word: "人",
                 reading: "ひと",
-                meaning: "person"
+                meaning: "person",
+                hasCard: true
             )
         )
     }
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<CardEntry>) -> ()) {
-
-        // ✅ USE APP GROUP
-//        let defaults = UserDefaults(suiteName: AppGroup.identifier)
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-
-        let isFlipped = defaults.bool(forKey: "isFlipped")
-        let word = defaults.string(forKey: "word") ?? "—"
-        let reading = defaults.string(forKey: "reading") ?? ""
-        let meaning = defaults.string(forKey: "meaning") ?? ""
+        let state = QueueStore.load(from: defaults)
+        let currentCard = state.currentCard
+        let isFlipped = defaults.bool(forKey: AppGroup.isFlippedKey)
 
         let entry = CardEntry(
             date: Date(),
-            isFlipped: isFlipped,
-            word: word,
-            reading: reading,
-            meaning: meaning
+            isFlipped: isFlipped && currentCard != nil,
+            word: currentCard?.word ?? "Queue complete",
+            reading: currentCard?.reading ?? "",
+            meaning: currentCard?.meaning ?? "",
+            hasCard: currentCard != nil
         )
 
         completion(Timeline(entries: [entry], policy: .never))
@@ -104,15 +105,20 @@ struct AgainIntent: AppIntent {
     static var title: LocalizedStringResource = "Again"
 
     func perform() async throws -> some IntentResult {
-//        let defaults = UserDefaults.standard
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        var index = defaults.integer(forKey: "currentIndex")
+        var state = QueueStore.load(from: defaults)
 
-        index += 1 // still move forward
-        defaults.set(index, forKey: "currentIndex")
-        defaults.set(false, forKey: "isFlipped")
+        guard let currentCard = state.currentCard else {
+            return .result()
+        }
 
-        // TODO: store "again" result
+        state.cards.removeFirst()
+        state.againCounts[currentCard.id, default: 0] += 1
+        if !state.reviewedCardIDs.contains(currentCard.id) {
+            state.reviewedCardIDs.append(currentCard.id)
+        }
+        state.cards.append(currentCard)
+        QueueStore.save(state, to: defaults)
 
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
@@ -123,15 +129,19 @@ struct PassIntent: AppIntent {
     static var title: LocalizedStringResource = "Pass"
 
     func perform() async throws -> some IntentResult {
-//        let defaults = UserDefaults.standard
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
-        var index = defaults.integer(forKey: "currentIndex")
+        var state = QueueStore.load(from: defaults)
 
-        index += 1
-        defaults.set(index, forKey: "currentIndex")
-        defaults.set(false, forKey: "isFlipped")
+        guard let currentCard = state.currentCard else {
+            return .result()
+        }
 
-        // TODO: store "pass"
+        state.cards.removeFirst()
+        state.completedCardIDs.append(currentCard.id)
+        if !state.reviewedCardIDs.contains(currentCard.id) {
+            state.reviewedCardIDs.append(currentCard.id)
+        }
+        QueueStore.save(state, to: defaults)
 
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
@@ -150,6 +160,7 @@ struct CardEntry: TimelineEntry {
     let word: String
     let reading: String
     let meaning: String
+    let hasCard: Bool
 }
 
 struct KartangoWidgetEntryView: View {
@@ -166,7 +177,13 @@ struct KartangoWidgetEntryView: View {
             }
             .buttonStyle(.plain)
             
-            if entry.isFlipped {
+            if !entry.hasCard {
+                Text("Import a deck in the app to refill today's queue.")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(24)
+            } else if entry.isFlipped {
                 HStack {
                     // audio button
                     Button(intent: PlayAudioIntent()) {
@@ -267,13 +284,15 @@ struct KartangoWidget: Widget {
         isFlipped: false,
         word: "human",
         reading: "kon",
-        meaning: "person"
+        meaning: "person",
+        hasCard: true
     )
     CardEntry(
         date: .now,
         isFlipped: true,
         word: "human",
         reading: "kon",
-        meaning: "person"
+        meaning: "person",
+        hasCard: true
     )
 }

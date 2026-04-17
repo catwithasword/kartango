@@ -8,6 +8,7 @@
 import WidgetKit
 import SwiftUI
 import AppIntents
+import AVFAudio
 
 
 
@@ -132,9 +133,39 @@ struct Provider: TimelineProvider {
 
 struct PlayAudioIntent: AppIntent {
     static var title: LocalizedStringResource = "Play Audio"
-    
+    // NO openAppWhenRun — stays in background ✅
+
     func perform() async throws -> some IntentResult {
-        // trigger audio here (App Group / shared state / etc.)
+        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+        let state = QueueStore.load(from: defaults)
+
+        guard let audioFileName = state.currentCard?.audioFileName,
+              !audioFileName.isEmpty else { return .result() }
+
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: AppGroup.identifier
+        ) else { return .result() }
+
+        let fileURL = containerURL
+            .appendingPathComponent("ImportedAudio")
+            .appendingPathComponent(audioFileName)
+
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return .result() }
+
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let player = try AVAudioPlayer(contentsOf: fileURL)
+            player.prepareToPlay()
+            player.play()
+
+            // Keep alive until audio finishes
+            let duration = player.duration
+            try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+        } catch {
+            print("Audio error: \(error)")
+        }
+
         return .result()
     }
 }
@@ -270,7 +301,14 @@ struct KartangoWidgetEntryView: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.widgetBackground)
                 .padding(-20)
-            
+
+            // Full-size flip target behind controls; buttons above will intercept their areas
+            Button(intent: FlipCardIntent()) {
+                Color.clear
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+
             HStack {
                 Button(intent: PlayAudioIntent()) {
                     Image(systemName: "speaker.wave.2.fill")
@@ -280,33 +318,25 @@ struct KartangoWidgetEntryView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.borderless)
-                
+
                 Spacer()
-                
+
+                // Center content flips card when tapped
                 VStack(spacing: 4) {
-                    // Text("ひと")
                     Text(entry.reading)
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    //  Text("人")
                     Text(entry.word)
                         .font(.system(size: 40, weight: .bold))
-                    // Text("person")
                     Text(entry.meaning)
                         .font(.headline)
                 }
-                
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+
                 Spacer()
-                
+
                 VStack(spacing: 12) {
-                    Button(intent: FlipCardIntent()) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .foregroundColor(.white)
-                            .frame(width: 40, height: 40)
-                            .background(Color.blue)
-                            .clipShape(Circle())
-                    }.buttonStyle(.borderless)
-                    
                     Button(intent: AgainIntent()) {
                         Image(systemName: "arrow.uturn.left")
                             .foregroundColor(.white)
@@ -314,7 +344,7 @@ struct KartangoWidgetEntryView: View {
                             .background(Color.againButton)
                             .clipShape(Circle())
                     }.buttonStyle(.borderless)
-                    
+
                     Button(intent: PassIntent()) {
                         Image(systemName: "arrow.right")
                             .foregroundColor(.white)
@@ -325,6 +355,14 @@ struct KartangoWidgetEntryView: View {
                 }
             }
             .padding()
+
+//            // Tap anywhere in the remaining area (excluding side button columns) to flip
+//            Button(intent: FlipCardIntent()) {
+//                Color.clear
+//            }
+//            .buttonStyle(.plain)
+//            .contentShape(Rectangle())
+//            .padding(.horizontal, 88) // exclude approx width of side controls + spacing
         }
     }
     
@@ -340,10 +378,12 @@ struct KartangoWidget: Widget {
             if #available(macOS 14.0, iOS 17.0, *) {
                 KartangoWidgetEntryView(entry: entry)
                     .containerBackground(.fill.tertiary, for: .widget)
+                    .widgetURL(nil)
             } else {
                 KartangoWidgetEntryView(entry: entry)
                     .padding()
                     .background()
+                    .widgetURL(nil)
             }
         }
         .configurationDisplayName("My Widget")
@@ -371,4 +411,5 @@ struct KartangoWidget: Widget {
         hasCard: true
     )
 }
+
 

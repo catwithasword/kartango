@@ -7,10 +7,16 @@
 
 import SwiftUI
 import CoreData
+import BackgroundTasks
 
 @main
 struct KartangoApp: App {
     let persistenceController = PersistenceController.shared
+
+    init() {
+        BackgroundRefresh.register()
+        BackgroundRefresh.schedule()
+    }
 
     var body: some Scene {
         WindowGroup {

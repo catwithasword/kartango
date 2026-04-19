@@ -9,7 +9,7 @@ import WidgetKit
 import SwiftUI
 import AppIntents
 import AVFAudio
-
+import AVFoundation
 
 
 struct Provider: TimelineProvider {
@@ -74,8 +74,8 @@ struct Provider: TimelineProvider {
         
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
         var state = QueueStore.load(from: defaults)
-//        let todayKey = QueueBuilder.queueDateKey(for: .now)
-        let todayKey = QueueBuilder.queueDateKey(for: Calendar.current.date(byAdding: .day, value: -1, to: .now)!)
+        let todayKey = QueueBuilder.queueDateKey(for: .now)
+//        let todayKey = QueueBuilder.queueDateKey(for: Calendar.current.date(byAdding: .day, value: -1, to: .now)!)
 
         // DEBUG - remove after testing
         let data = defaults.data(forKey: "allLibraryCards") ?? Data()
@@ -130,46 +130,146 @@ struct Provider: TimelineProvider {
 
 
 
-
-struct PlayAudioIntent: AppIntent {
+struct PlayAudioIntent: AudioPlaybackIntent { // <--- Change this
     static var title: LocalizedStringResource = "Play Audio"
-    // NO openAppWhenRun — stays in background ✅
-
+    
+    // This is required by AudioPlaybackIntent
+    static var isDiscoverable: Bool = true
+    
     func perform() async throws -> some IntentResult {
+        print("🔊 INTENT START ------------------")
+
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
         let state = QueueStore.load(from: defaults)
 
-        guard let audioFileName = state.currentCard?.audioFileName,
-              !audioFileName.isEmpty else { return .result() }
+        print("📦 currentCard exists:", state.currentCard != nil)
+        print("📦 audioFileName:", state.currentCard?.audioFileName ?? "nil")
+
+        guard let audioFileName = state.currentCard?.audioFileName else {
+            print("❌ No audio file name")
+            return .result()
+        }
 
         guard let containerURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: AppGroup.identifier
-        ) else { return .result() }
+        ) else {
+            print("❌ No container URL")
+            return .result()
+        }
 
         let fileURL = containerURL
             .appendingPathComponent("ImportedAudio")
             .appendingPathComponent(audioFileName)
 
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return .result() }
+        print("📁 containerURL:", containerURL.path)
+        print("📁 fileURL:", fileURL.path)
+        print("📁 file exists:", FileManager.default.fileExists(atPath: fileURL.path))
 
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-            let player = try AVAudioPlayer(contentsOf: fileURL)
-            player.prepareToPlay()
-            player.play()
+            let session = AVAudioSession.sharedInstance()
 
-            // Keep alive until audio finishes
-            let duration = player.duration
-            try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            print("🎧 Setting audio session...")
+//            try session.setCategory(.playback, mode: .default, options: [])
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers, .duckOthers])
+            try session.setActive(true)
+
+            print("🎧 Session active ✅")
+
+            let player = try AVAudioPlayer(contentsOf: fileURL)
+
+            print("🎵 Player created")
+            print("🎵 duration:", player.duration)
+
+            player.prepareToPlay()
+
+            let started = player.play()
+            print("▶️ play() returned:", started)
+
+            if !started {
+                print("❌ Player failed to start")
+            }
+
+            while player.isPlaying {
+                print("⏳ playing...")
+                try await Task.sleep(nanoseconds: 500_000_000)
+            }
+
+            print("✅ playback finished")
+
         } catch {
-            print("Audio error: \(error)")
+            print("❌ AUDIO ERROR:", error)
         }
 
         return .result()
     }
+
+//    func perform() async throws -> some IntentResult {
+//        let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
+//        let state = QueueStore.load(from: defaults)
+//
+//        guard let audioFileName = state.currentCard?.audioFileName,
+//              let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppGroup.identifier)
+//        else { return .result() }
+//
+//        let fileURL = containerURL.appendingPathComponent("ImportedAudio").appendingPathComponent(audioFileName)
+//
+//        do {
+//            
+//            
+//            let session = AVAudioSession.sharedInstance()
+////             Use .mixWithOthers to prevent interrupting other apps if desired
+//            try session.setCategory(.playback, mode: .default, options: [])
+//            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+//            try session.setActive(true)
+//
+////             CRITICAL: You must keep a strong reference to the player
+////             during the duration of the task.
+//            let player = try AVAudioPlayer(contentsOf: fileURL)
+//            player.prepareToPlay()
+//            player.play()
+//
+//            // Keep the intent alive while audio plays
+//            while player.isPlaying {
+//                try await Task.sleep(nanoseconds: 500_000_000) // Sleep 0.5s chunks
+//            }
+//        } catch {
+//            print("Status 561015905 Fix: \(error)")
+//        }
+//
+//        return .result()
+//    }
 }
 
+
+
+
+//
+//
+//// Delegate that holds a strong ref to itself until playback ends
+//final class AudioDelegate: NSObject, AVAudioPlayerDelegate {
+//    private static var active: Set<AudioDelegate> = []
+//    private let continuation: CheckedContinuation<Void, Error>
+//    private let player: AVAudioPlayer // strong ref keeps player alive
+//
+//    init(continuation: CheckedContinuation<Void, Error>, player: AVAudioPlayer) {
+//        self.continuation = continuation
+//        self.player = player
+//    }
+//
+//    static func retain(_ delegate: AudioDelegate) {
+//        active.insert(delegate)
+//    }
+//
+//    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+//        continuation.resume()
+//        Self.active.remove(self)
+//    }
+//
+//    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+//        continuation.resume(throwing: error ?? CancellationError())
+//        Self.active.remove(self)
+//    }
+//}
 
 // Flip
 struct FlipCardIntent: AppIntent {
@@ -197,7 +297,7 @@ struct AgainIntent: AppIntent {
         let defaults = UserDefaults(suiteName: AppGroup.identifier) ?? .standard
         var state = QueueStore.load(from: defaults)
         
-        guard let currentCard = state.currentCard else {
+        guard let currentCard = state.currentCard else {            
             return .result()
         }
         
@@ -294,9 +394,74 @@ struct KartangoWidgetEntryView: View {
         }
         .buttonStyle(.plain)
     }
-    
     @ViewBuilder
     var backView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.widgetBackground)
+                .padding(-20)
+
+            Button(intent: FlipCardIntent()) {
+                Color.clear
+            }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .zIndex(0)          // ← ADD
+
+            HStack {
+                Button(intent: PlayAudioIntent()) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Color.audioButton)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.borderless)
+                .zIndex(2)      // ← ADD
+
+                Spacer()
+
+                VStack(spacing: 4) {
+                    Text(entry.reading)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(entry.word)
+                        .font(.system(size: 40, weight: .bold))
+                    Text(entry.meaning)
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    Button(intent: AgainIntent()) {
+                        Image(systemName: "arrow.uturn.left")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.againButton)
+                            .clipShape(Circle())
+                    }.buttonStyle(.borderless)
+
+                    Button(intent: PassIntent()) {
+                        Image(systemName: "arrow.right")
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.passButton)
+                            .clipShape(Circle())
+                    }.buttonStyle(.borderless)
+                }
+            }
+            .padding()
+            .zIndex(1)          // ← ADD
+        }
+    }
+    
+    
+    // original
+    @ViewBuilder
+    var backView2: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color.widgetBackground)

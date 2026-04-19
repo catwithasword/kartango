@@ -1,59 +1,6 @@
-////
-////  QueueBuilder.swift
-////  Kartango
-////
-////  Created by Mink on 6/4/2569 BE.
-////
-
 import Foundation
 
-#if canImport(CoreData)
-import CoreData
-#endif
-
-// QueueBuilder.swift — shared between App + Widget
-
 struct QueueBuilder {
-
-    // MARK: - Build Library
-
-#if canImport(CoreData)
-    static func makeLibraryQueueCards(
-        from decks: [Deck],
-        againCounts: [String: Int]
-    ) -> [QueueCard] {
-        decks
-            .flatMap { deck in
-                deck.studyCards.map { card in
-                    QueueCard(
-                        id: card.id.uuidString,
-                        deckID: deck.id.uuidString,
-                        word: card.word,
-                        reading: card.example ?? "",
-                        meaning: card.definitionText,
-                        audioFileName: card.audioFileName
-                    )
-                }
-            }
-            .sorted { lhs, rhs in
-                let lhsAgain = againCounts[lhs.id, default: 0]
-                let rhsAgain = againCounts[rhs.id, default: 0]
-
-                if lhsAgain != rhsAgain {
-                    return lhsAgain > rhsAgain
-                }
-
-                if lhs.deckID != rhs.deckID {
-                    return lhs.deckID < rhs.deckID
-                }
-
-                return lhs.word.localizedCaseInsensitiveCompare(rhs.word) == .orderedAscending
-            }
-    }
-#endif
-
-    // MARK: - Daily Queue
-
     static func buildDailyQueue(
         from cards: [QueueCard],
         reviewedCardIDs: [String],
@@ -80,7 +27,7 @@ struct QueueBuilder {
             limit: reviewCardsPerDay
         )
 
-        let selectedReviewIDs = Set(selectedReviewCards.map(\.id))
+        let selectedReviewIDs = Set(selectedReviewCards.map { $0.id })
 
         let selectedNewCards = Array(
             newCards
@@ -91,14 +38,11 @@ struct QueueBuilder {
         return selectedReviewCards + selectedNewCards
     }
 
-    // MARK: - Weighted Selection
-
     private static func weightedReviewSelection(
         from reviewCards: [QueueCard],
         againCounts: [String: Int],
         limit: Int
     ) -> [QueueCard] {
-
         guard reviewCards.count > limit else { return reviewCards }
 
         var generator = SystemRandomNumberGenerator()
@@ -106,7 +50,6 @@ struct QueueBuilder {
         var selectedCards: [QueueCard] = []
 
         while selectedCards.count < limit, !remainingCards.isEmpty {
-
             let totalWeight = remainingCards.reduce(0) {
                 $0 + max(1, againCounts[$1.id, default: 0] + 1)
             }
@@ -127,23 +70,6 @@ struct QueueBuilder {
         return selectedCards
     }
 
-    // MARK: - Reviewed IDs
-
-    static func preservedReviewedCardIDs(
-        from existingState: QueueState,
-        libraryCardIDs: Set<String>
-    ) -> [String] {
-
-        let reviewedIDs = Set(existingState.reviewedCardIDs)
-        let migratedIDs = reviewedIDs.union(existingState.againCounts.keys)
-
-        return migratedIDs
-            .filter { libraryCardIDs.contains($0) }
-            .sorted()
-    }
-
-    // MARK: - Helpers
-
     static func normalizedDailyLimit(_ value: Int) -> Int {
         let allowedValues = [10, 20, 30, 40, 50]
         return allowedValues.contains(value) ? value : 10
@@ -158,4 +84,3 @@ struct QueueBuilder {
         return formatter.string(from: date)
     }
 }
-

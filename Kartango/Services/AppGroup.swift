@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppGroup {
-    static let identifier = "group.com.ske.kartango"
+    static let identifier = "group.com.mink.kartango"
     static let audioDirectoryName = "ImportedAudio"
     static let queueStateKey = "queueState"
     static let isFlippedKey = "isFlipped"

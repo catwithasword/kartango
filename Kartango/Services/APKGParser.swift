@@ -4,7 +4,7 @@ import SQLite
 import ZIPFoundation
 
 actor APKGParser {
-    private static let appGroupIdentifier = "group.com.ske.kartango"
+    private static let appGroupIdentifier = "group.com.mink.kartango"
     private static let audioDirectoryName = "ImportedAudio"
 
     struct ImportSummary {

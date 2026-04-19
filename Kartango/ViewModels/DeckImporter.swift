@@ -8,10 +8,12 @@ import WidgetKit
 final class DeckImporter {
     var isImporting = false
     var importErrorMessage: String?
+    var onImportComplete: (() -> Void)?
 
     private let parser = APKGParser()
 
     func importDeck(from fileURL: URL, persistenceController: PersistenceController) {
+        guard !isImporting else { return }
         isImporting = true
         importErrorMessage = nil
 
@@ -22,7 +24,6 @@ final class DeckImporter {
                 if hasScopedAccess {
                     fileURL.stopAccessingSecurityScopedResource()
                 }
-
                 isImporting = false
             }
 
@@ -34,6 +35,7 @@ final class DeckImporter {
                     persistenceController: persistenceController
                 )
                 WidgetCenter.shared.reloadAllTimelines()
+                onImportComplete?()
             } catch {
                 importErrorMessage = error.localizedDescription
             }

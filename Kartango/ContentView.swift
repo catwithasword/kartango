@@ -17,6 +17,7 @@ struct ContentView: View {
     @State private var isImporterPresented = false
     @State private var selectedTab: AppTab = .decks
     @State private var queueState = QueueState()
+    @State private var simulatedDate: Date?
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Deck.createdAt, ascending: false)],
         animation: .default
@@ -50,12 +51,29 @@ struct ContentView: View {
             onCompletion: handleImportResult
         )
         .onAppear(perform: syncQueueState)
+        .onChange(of: decks.count) { _, _ in
+            syncQueueState()
+        }
         .onChange(of: queueSignature) { _, _ in
             syncQueueState()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                syncQueueState()
+                // Just reload from UserDefaults — widget already updated the queue
+                let defaults = UserDefaults(suiteName: AppGroup.identifier)
+                let loaded = QueueStore.load(from: defaults)
+                if loaded.queueDate == queueDateKey(for: .now) {
+                    queueState = loaded
+                } else {
+                    syncQueueState()
+                }
+            }
+        }
+        .onAppear {
+            importer.onImportComplete = {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    syncQueueState()
+                }
             }
         }
     }
@@ -166,23 +184,44 @@ struct ContentView: View {
             return
         }
 
-        if existingState.queueDate == todayKey {
-            if existingState.reviewedCardIDs != preservedReviewedCardIDs {
-                let migratedState = QueueState(
-                    queueDate: existingState.queueDate,
-                    cards: existingState.cards,
-                    completedCardIDs: existingState.completedCardIDs,
-                    reviewedCardIDs: preservedReviewedCardIDs,
-                    againCounts: existingState.againCounts
-                )
-                QueueStore.save(migratedState, to: defaults)
-                WidgetCenter.shared.reloadAllTimelines()
-                queueState = migratedState
+        if existingState.queueDate == todayKey && !existingState.cards.isEmpty {
+            // Check if queue is stale (new decks/cards added since last sync)
+            let existingCardIDs = Set(existingState.cards.map(\.id))
+            let queueIsStale = !libraryCardIDs.isSubset(of: existingCardIDs)
+
+            if !queueIsStale && existingState.reviewedCardIDs == preservedReviewedCardIDs {
+                queueState = existingState
                 return
             }
 
-            queueState = existingState
+            // Rebuild queue (new cards or migrated IDs)
+            let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
+            let rebuiltCards = buildDailyQueue(
+                from: libraryCards,
+                reviewedCardIDs: preservedReviewedCardIDs,
+                againCounts: preservedAgainCounts,
+                defaults: defaults
+            )
+            let rebuiltState = QueueState(
+                queueDate: todayKey,
+                cards: rebuiltCards,
+                completedCardIDs: queueIsStale ? [] : existingState.completedCardIDs,
+                reviewedCardIDs: preservedReviewedCardIDs,
+                againCounts: preservedAgainCounts
+            )
+            QueueStore.save(rebuiltState, to: defaults)
+            WidgetCenter.shared.reloadAllTimelines()
+            queueState = rebuiltState
             return
+        }
+
+        // Day changed — save unfinished cards for tomorrow
+        if !existingState.cards.isEmpty && existingState.queueDate != todayKey {
+            let reviewedSet = Set(existingState.reviewedCardIDs)
+            let unfinishedIDs = existingState.cards
+                .filter { !reviewedSet.contains($0.id) }
+                .map(\.id)
+            defaults?.set(unfinishedIDs, forKey: "pendingCardIDs")
         }
 
         let preservedAgainCounts = existingState.againCounts.filter { libraryCardIDs.contains($0.key) }
@@ -205,15 +244,17 @@ struct ContentView: View {
     }
 
     private func rebuildTodayQueue() {
+        simulatedDate = nil
         rebuildQueue(for: .now)
     }
 
     private func simulateTomorrowQueue() {
-        guard let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now) else {
+        let baseDate = simulatedDate ?? Date()
+        guard let nextDay = Calendar.current.date(byAdding: .day, value: 1, to: baseDate) else {
             return
         }
-
-        rebuildQueue(for: tomorrow)
+        simulatedDate = nextDay
+        rebuildQueue(for: nextDay)
     }
 
     private func rebuildQueue(for date: Date) {
@@ -291,20 +332,31 @@ struct ContentView: View {
         )
 
         let reviewedCardIDSet = Set(reviewedCardIDs)
-        let reviewCards = cards.filter { reviewedCardIDSet.contains($0.id) }
-        let newCards = cards.filter { !reviewedCardIDSet.contains($0.id) }
+        let pendingCardIDs = Set(defaults?.stringArray(forKey: "pendingCardIDs") ?? [])
 
-        let selectedReviewCards = weightedReviewSelection(
-            from: reviewCards,
-            againCounts: againCounts,
-            limit: reviewCardsPerDay
-        )
-        let selectedReviewIDs = Set(selectedReviewCards.map(\.id))
-        let selectedNewCards = Array(
-            newCards
-                .filter { !selectedReviewIDs.contains($0.id) }
-                .prefix(newCardsPerDay)
-        )
+        // Group cards by deck, apply limits per deck
+        let cardsByDeck = Dictionary(grouping: cards, by: \.deckID)
+        var selectedReviewCards: [QueueCard] = []
+        var selectedNewCards: [QueueCard] = []
+
+        for (_, deckCards) in cardsByDeck {
+            let deckReviewCards = deckCards.filter { reviewedCardIDSet.contains($0.id) }
+            let deckNewCards = deckCards.filter { !reviewedCardIDSet.contains($0.id) }
+
+            selectedReviewCards.append(contentsOf: weightedReviewSelection(
+                from: deckReviewCards,
+                againCounts: againCounts,
+                limit: reviewCardsPerDay
+            ))
+
+            // Prioritize pending cards from yesterday, then fill with new cards
+            let pendingCards = deckNewCards.filter { pendingCardIDs.contains($0.id) }
+            let otherNewCards = deckNewCards.filter { !pendingCardIDs.contains($0.id) }
+            selectedNewCards.append(contentsOf: Array((pendingCards + otherNewCards).prefix(newCardsPerDay)))
+        }
+
+        // Clear pending after use
+        defaults?.removeObject(forKey: "pendingCardIDs")
 
         return selectedReviewCards + selectedNewCards
     }

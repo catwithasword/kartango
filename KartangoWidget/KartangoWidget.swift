@@ -138,6 +138,7 @@ struct AgainIntent: AppIntent {
         }
         state.cards.append(currentCard)
         QueueStore.save(state, to: defaults)
+        DailyStatsStore.recordReview(isAgain: true, to: defaults)
         
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
@@ -163,6 +164,7 @@ struct PassIntent: AppIntent {
             state.reviewedCardIDs.append(currentCard.id)
         }
         QueueStore.save(state, to: defaults)
+        DailyStatsStore.recordReview(isAgain: false, to: defaults)
         
         WidgetCenter.shared.reloadAllTimelines()
         return .result()

@@ -1,0 +1,25 @@
+wing: kartango
+rooms:
+- name: kartango.xcodeproj
+  description: Files from Kartango.xcodeproj/
+  keywords:
+  - kartango.xcodeproj
+  - kartango.xcodeproj
+- name: kartangowidget
+  description: Files from KartangoWidget/
+  keywords:
+  - kartangowidget
+  - kartangowidget
+- name: kartango
+  description: Files from Kartango/
+  keywords:
+  - kartango
+  - kartango
+- name: backend
+  description: Files from Models/
+  keywords:
+  - backend
+  - models
+- name: general
+  description: Files that don't fit other rooms
+  keywords: []

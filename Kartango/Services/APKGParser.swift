@@ -166,7 +166,7 @@ actor APKGParser {
 
         let deckNames = try parseDeckNames(in: database)
         let rows = try database.prepare("""
-            SELECT notes.id AS note_id, cards.id AS card_id, cards.did AS deck_id, notes.flds AS fields
+            SELECT notes.id AS note_id, cards.id AS card_id, cards.did AS deck_id, notes.flds AS fields, notes.mid AS model_id
             FROM notes
             JOIN cards ON cards.nid = notes.id
             ORDER BY cards.did, notes.id
@@ -175,25 +175,60 @@ actor APKGParser {
         var copiedAudioBySourceName: [String: String] = [:]
         var cardsByDeckName: [String: [ParsedCard]] = [:]
 
+        // Known model field mappings
+        // JlabNote: word=field9 (Other-Front), def=field6 (RemarksBack), audio=field3
+        // InfoNote: word=field3 (Text), def=field3 (Text)
+        let jlabModelID: Int64 = 1600967949156
+        let infoModelID: Int64 = 1600967940346
+
         for row in rows {
             guard
                 let noteID = row[0] as? Int64,
                 let cardID = row[1] as? Int64,
                 let deckID = row[2] as? Int64,
-                let fields = row[3] as? String
+                let fields = row[3] as? String,
+                let modelID = row[4] as? Int64
             else {
                 continue
             }
 
             let separatedFields = fields.components(separatedBy: "\u{1F}")
-            guard separatedFields.count >= 2 else {
-                continue
+
+            // Map fields based on model
+            let wordField: String
+            let definitionField: String
+            let exampleField: String?
+            let audioField: String?
+
+            if modelID == jlabModelID, separatedFields.count > 9 {
+                // JlabNote model
+                wordField = separatedFields[9]
+                definitionField = separatedFields.count > 6 ? separatedFields[6] : ""
+                exampleField = nil
+                audioField = separatedFields.count > 3 ? separatedFields[3] : nil
+            } else if modelID == infoModelID, separatedFields.count > 3 {
+                // InfoNote model - just text content
+                wordField = separatedFields[3]
+                definitionField = separatedFields[3]
+                exampleField = nil
+                audioField = nil
+            } else {
+                // Default: assume standard Anki layout (field0=front, field1=back)
+                guard separatedFields.count >= 2 else { continue }
+                wordField = separatedFields[0]
+                definitionField = separatedFields[1]
+                exampleField = separatedFields.count > 2 ? separatedFields[2] : nil
+                audioField = nil
             }
 
-            let wordField = separatedFields[0]
-            let definitionField = separatedFields[1]
-            let exampleField = separatedFields.count > 2 ? separatedFields[2] : nil
-            let referencedAudio = extractAudioFileName(from: separatedFields)
+            // Extract audio filename
+            let referencedAudio: String?
+            if let audioField = audioField {
+                // Audio field might be [sound:filename.mp3] or just filename
+                referencedAudio = extractAudioFileName(from: [audioField]) ?? extractAudioFileName(from: separatedFields)
+            } else {
+                referencedAudio = extractAudioFileName(from: separatedFields)
+            }
             let copiedAudio = try copyAudioIfNeeded(
                 referencedAudio,
                 mediaMap: mediaMap,
@@ -202,7 +237,9 @@ actor APKGParser {
                 cache: &copiedAudioBySourceName
             )
 
-            let deckName = deckNames[deckID] ?? fallbackDeckName
+            let fullDeckName = deckNames[deckID] ?? fallbackDeckName
+            // Collapse Anki subdecks (e.g. "Parent::Child") into the top-level deck
+            let deckName = fullDeckName.components(separatedBy: "::").first ?? fullDeckName
             let card = ParsedCard(
                 noteID: noteID,
                 cardID: cardID,
@@ -215,7 +252,12 @@ actor APKGParser {
         }
 
         return cardsByDeckName
-            .map { ParsedDeck(name: $0.key, cards: $0.value) }
+            .map { name, cards in
+                // Deduplicate by noteID (same note can have cards in multiple subdecks)
+                var seenNoteIDs = Set<Int64>()
+                let uniqueCards = cards.filter { seenNoteIDs.insert($0.noteID).inserted }
+                return ParsedDeck(name: name, cards: uniqueCards)
+            }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
@@ -249,13 +291,16 @@ actor APKGParser {
             guard
                 let deckID = Int64(entry.key),
                 let deckData = entry.value as? [String: Any],
-                let deckName = deckData["name"] as? String,
-                !deckName.isEmpty
+                let rawName = deckData["name"] as? String,
+                !rawName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             else {
                 return
             }
 
-            result[deckID] = deckName
+            let normalizedName = rawName
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "\u{00A0}", with: " ")  // non-breaking space → regular space
+            result[deckID] = normalizedName
         }
     }
 

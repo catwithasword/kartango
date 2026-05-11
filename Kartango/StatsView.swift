@@ -42,24 +42,34 @@ struct StatsView: View {
 
     private var streakSection: some View {
         VStack(spacing: 14) {
-            Text("\(streakCount)")
-                .font(.system(size: 48, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.gold)
+            if streakCount > 0 {
+                Text("\(streakCount)")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.gold)
 
-            Text("day streak")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+                Text("day streak")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
 
-            HStack(spacing: 18) {
-                ForEach(0..<5) { index in
-                    let dayOffset = index - 2
-                    let isToday = dayOffset == 0
-                    let isFuture = dayOffset > 0
-
-                    Image(systemName: "star.fill")
-                        .font(.system(size: isToday ? 28 : 18))
-                        .foregroundStyle(isFuture ? Color.defaultGray.opacity(0.3) : Color.gold)
+                HStack(spacing: 14) {
+                    ForEach(0..<min(max(streakCount, 1), 7), id: \.self) { index in
+                        Image(systemName: "star.fill")
+                            .font(.system(size: index == 0 ? 28 : 18))
+                            .foregroundStyle(Color.gold)
+                    }
                 }
+            } else {
+                Image(systemName: "flame")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(Color.defaultGray.opacity(0.4))
+
+                Text("No streak yet")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                Text("Review cards daily to build your streak.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary.opacity(0.7))
             }
         }
         .frame(maxWidth: .infinity)
@@ -75,8 +85,26 @@ struct StatsView: View {
                 .font(.headline)
                 .foregroundStyle(.black.opacity(0.85))
 
-            DailyTrendChart(data: dailyTrendData)
-                .frame(height: 140)
+            if dailyTrendData.contains(where: { $0 > 0 }) {
+                DailyTrendChart(data: dailyTrendData)
+                    .frame(height: 140)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(Color.defaultGray.opacity(0.4))
+
+                    Text("No activity yet")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+
+                    Text("Your daily review trend will appear here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,13 +119,31 @@ struct StatsView: View {
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            DonutChart(
-                progress: wordsLearnedProgress,
-                centerValue: "\(totalWordsReviewed)",
-                centerLabel: "words reviewed",
-                secondaryLabel: "from \(wordsGoal)"
-            )
-            .frame(height: 180)
+            if totalWordsReviewed > 0 {
+                DonutChart(
+                    progress: wordsLearnedProgress,
+                    centerValue: "\(totalWordsReviewed)",
+                    centerLabel: "words reviewed",
+                    secondaryLabel: "from \(wordsGoal)"
+                )
+                .frame(height: 180)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "book.closed")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(Color.defaultGray.opacity(0.4))
+
+                    Text("No words reviewed yet")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+
+                    Text("Complete card reviews to track your progress.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,7 +158,25 @@ struct StatsView: View {
                 .font(.headline)
                 .foregroundStyle(.black.opacity(0.85))
 
-            AgainPassBar(againPercent: againRate)
+            if hasAnyReviews {
+                AgainPassBar(againPercent: againRate)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 24, weight: .light))
+                        .foregroundStyle(Color.defaultGray.opacity(0.4))
+
+                    Text("No reviews yet")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+
+                    Text("Your again/pass ratio will appear after your first review.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -190,6 +254,11 @@ struct StatsView: View {
 
     private var againRate: Double {
         DailyStatsStore.againRate()
+    }
+
+    private var hasAnyReviews: Bool {
+        let stats = DailyStatsStore.load()
+        return stats.totalAgainCount + stats.totalPassCount > 0
     }
 
     private var remainingReviewCount: Int {
